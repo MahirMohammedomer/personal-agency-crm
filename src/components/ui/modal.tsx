@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "./primitives";
 
@@ -97,34 +97,59 @@ export function ConfirmDialog({
   message: string;
   confirmLabel?: string;
   destructive?: boolean;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   onClose: () => void;
 }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setBusy(false);
+      setError(null);
+    }
+  }, [open]);
+
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={() => {
+        if (!busy) onClose();
+      }}
       title={title}
       size="sm"
       footer={
         <>
-          <Button size="md" variant="ghost" onClick={onClose}>
+          <Button size="md" variant="ghost" disabled={busy} onClick={onClose}>
             Cancel
           </Button>
           <Button
             size="md"
             variant={destructive ? "danger" : "primary"}
-            onClick={() => {
-              onConfirm();
-              onClose();
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              setError(null);
+              try {
+                await onConfirm();
+                onClose();
+              } catch (err) {
+                setError(err instanceof Error ? err.message : String(err));
+                setBusy(false);
+              }
             }}
           >
-            {confirmLabel}
+            {busy ? "Working…" : confirmLabel}
           </Button>
         </>
       }
     >
       <p className="text-sm leading-relaxed text-muted">{message}</p>
+      {error ? (
+        <p className="mt-3 rounded-lg bg-rose-500/10 px-3 py-2 text-[13px] text-rose-600 dark:text-rose-300">
+          {error}
+        </p>
+      ) : null}
     </Modal>
   );
 }
