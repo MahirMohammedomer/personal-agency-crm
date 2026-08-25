@@ -94,15 +94,17 @@ export async function getSession(): Promise<SessionPayload | null> {
 
 /**
  * Exactly one owner account exists. On first run it is created from
- * OWNER_EMAIL / OWNER_PASSWORD, falling back to sensible local defaults so the
- * app is never locked out of itself.
+ * OWNER_EMAIL / OWNER_PASSWORD environment variables.
  */
 export async function ensureOwner() {
   const [existing] = await db.select().from(owner).limit(1);
   if (existing) return existing;
 
-  const email = (process.env.OWNER_EMAIL ?? "owner@meda.crm").toLowerCase().trim();
-  const password = process.env.OWNER_PASSWORD ?? "meda-crm";
+  const email = (process.env.OWNER_EMAIL ?? "").toLowerCase().trim();
+  const password = process.env.OWNER_PASSWORD ?? "";
+  if (!email || !password) {
+    throw new Error("OWNER_EMAIL and OWNER_PASSWORD environment variables are required on first run");
+  }
   const [created] = await db
     .insert(owner)
     .values({ email, passwordHash: hashPassword(password) })
