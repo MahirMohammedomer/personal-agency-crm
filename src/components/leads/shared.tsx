@@ -13,6 +13,7 @@ import {
   initials,
   mapsHref,
   socialUrl,
+  telegramHref,
   telHref,
   whatsappHref,
 } from "@/lib/utils";
@@ -163,6 +164,10 @@ export function QuickActions({
 
   const tel = telHref(lead.phone);
   const wa = whatsappHref(lead.phone);
+  // Prefer saved Telegram username/link; fall back to phone deep-link (like WhatsApp)
+  const tgUsername = socialUrl("telegram", lead.telegram);
+  const tgPhone = telegramHref(lead.phone);
+  const tg = tgUsername ?? tgPhone;
   const maps = mapsHref(lead);
   const site = ensureUrl(lead.website);
   const socials = (
@@ -170,7 +175,6 @@ export function QuickActions({
       ["Instagram", "📸", socialUrl("instagram", lead.instagram)],
       ["Facebook", "📘", socialUrl("facebook", lead.facebook)],
       ["TikTok", "🎵", socialUrl("tiktok", lead.tiktok)],
-      ["Telegram", "✈️", socialUrl("telegram", lead.telegram)],
       ["LinkedIn", "💼", socialUrl("linkedin", lead.linkedin)],
     ] as const
   ).filter((s) => Boolean(s[2]));
@@ -223,6 +227,22 @@ export function QuickActions({
           title="Open WhatsApp"
         >
           💬 {compact ? "" : "WhatsApp"}
+        </a>
+      ) : null}
+
+      {tg ? (
+        <a
+          href={tg}
+          target="_blank"
+          rel="noreferrer noopener"
+          onClick={(e) => {
+            stop(e);
+            onLogActivity?.("message", `Telegram opened for ${lead.businessName}`);
+          }}
+          className={actionClass}
+          title={tgUsername ? "Open Telegram (username)" : "Open Telegram (by phone)"}
+        >
+          ✈️ {compact ? "" : "Telegram"}
         </a>
       ) : null}
 
