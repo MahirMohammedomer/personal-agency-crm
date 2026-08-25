@@ -130,6 +130,18 @@ export function whatsappHref(phone: string | null | undefined): string | null {
   return `https://wa.me/${p.replace(/\D/g, "")}`;
 }
 
+/**
+ * Open a Telegram chat by phone number (same idea as WhatsApp).
+ * Uses t.me/+E164 — works when the contact has Telegram and their
+ * number is discoverable. Prefer username link when lead.telegram is set.
+ */
+export function telegramHref(phone: string | null | undefined): string | null {
+  const p = normalizePhone(phone);
+  if (!p) return null;
+  // t.me expects + and digits, e.g. https://t.me/+251912345678
+  return `https://t.me/${p}`;
+}
+
 /* ---------------------------------- links --------------------------------- */
 
 export function ensureUrl(value: string | null | undefined): string | null {
@@ -213,7 +225,7 @@ export function buildLeadInfoText(
   push("Facebook", socialUrl("facebook", lead.facebook));
   push("Instagram", socialUrl("instagram", lead.instagram));
   push("TikTok", socialUrl("tiktok", lead.tiktok));
-  push("Telegram", socialUrl("telegram", lead.telegram));
+  push("Telegram", socialUrl("telegram", lead.telegram) ?? telegramHref(lead.phone));
   push("LinkedIn", socialUrl("linkedin", lead.linkedin));
   push("Lead Score", lead.leadScore);
   push("Tier", lead.tier ? `Tier ${lead.tier}` : null);
