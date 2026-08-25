@@ -1,8 +1,18 @@
 import { requireAuth } from "@/lib/server/auth";
 import { NextResponse } from "next/server";
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { activities, contacts, followUps, leadNotes, leads, projects } from "@/db/schema";
+import {
+  activities,
+  contacts,
+  followUps,
+  leadNotes,
+  leads,
+  projectFiles,
+  projectNotes,
+  projects,
+  tasks,
+} from "@/db/schema";
 import { logActivity, normalizeLeadPayload } from "@/lib/server/leads";
 
 export const dynamic = "force-dynamic";
@@ -105,7 +115,41 @@ export async function DELETE(_request: Request, { params }: Ctx) {
   if (unauthorized) return unauthorized;
   const { id } = await params;
   const leadId = Number(id);
-  const [deleted] = await db.delete(leads).where(eq(leads.id, leadId)).returning();
-  if (!deleted) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
-  return NextResponse.json({ ok: true });
+  if (!Number.isFinite(leadId)) {
+    return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+  }
+
+  try {
+    const [existing] = await db.select().from(leads).where(eq(leads.id, leadId));
+    if (!existing) {
+      return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+    }
+
+    // Explicit cascade so delete works even if DB FKs were created without ON DELETE CASCADE
+    const relatedProjects = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(eq(projects.leadId, leadId));
+    const projectIds = relatedProjects.map((p) => p.id);
+
+    if (projectIds.length) {
+      await db.delete(tasks).where(inArray(tasks.projectId, projectIds));
+      await db.delete(projectNotes).where(inArray(projectNotes.projectId, projectIds));
+      await db.delete(projectFiles).where(inArray(projectFiles.projectId, projectIds));
+      await db.delete(projects).where(inArray(projects.id, projectIds));
+    }
+
+    await db.delete(leadNotes).where(eq(leadNotes.leadId, leadId));
+    await db.delete(activities).where(eq(activities.leadId, leadId));
+    await db.delete(followUps).where(eq(followUps.leadId, leadId));
+    await db.delete(contacts).where(eq(contacts.leadId, leadId));
+
+    await db.delete(leads).where(eq(leads.id, leadId));
+
+    return NextResponse.json({ ok: true, id: leadId });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("Delete lead failed", leadId, message);
+    return NextResponse.json({ error: `Could not delete lead: ${message}` }, { status: 500 });
+  }
 }
