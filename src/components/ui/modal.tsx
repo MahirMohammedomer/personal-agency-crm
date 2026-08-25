@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { Button } from "./primitives";
 
@@ -21,6 +22,12 @@ export function Modal({
   footer?: ReactNode;
   size?: "sm" | "md" | "lg" | "xl";
 }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -34,7 +41,7 @@ export function Modal({
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
   const widths = {
     sm: "max-w-md",
@@ -43,10 +50,10 @@ export function Modal({
     xl: "max-w-4xl",
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center p-0 sm:items-center sm:p-6">
+  const node = (
+    <div className="fixed inset-0 z-[9999] flex items-end justify-center p-0 sm:items-center sm:p-6">
       <div
-        className="animate-fade-in absolute inset-0 bg-black/35 backdrop-blur-[3px]"
+        className="animate-fade-in absolute inset-0 bg-black/45 backdrop-blur-[3px]"
         onClick={onClose}
       />
       <div
@@ -81,6 +88,8 @@ export function Modal({
       </div>
     </div>
   );
+
+  return createPortal(node, document.body);
 }
 
 export function ConfirmDialog({
