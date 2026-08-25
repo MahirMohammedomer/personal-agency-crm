@@ -9,11 +9,13 @@ import {
   cn,
   copyText,
   ensureUrl,
-  formatETB,
   hasSocial,
   mapsHref,
+  socialUrl,
+  telegramHref,
   telHref,
   whatsappHref,
+  formatETB,
 } from "@/lib/utils";
 import { ScoreBadge, StatusPill, TierBadge } from "./shared";
 
@@ -121,6 +123,7 @@ function Row({
   const site = ensureUrl(lead.website);
   const tel = telHref(lead.phone);
   const wa = whatsappHref(lead.phone);
+  const tg = socialUrl("telegram", lead.telegram) ?? telegramHref(lead.phone);
   const maps = mapsHref(lead);
 
   const iconBtn =
@@ -240,6 +243,11 @@ function Row({
         {wa ? (
           <a href={wa} target="_blank" rel="noreferrer" className={iconBtn} title="WhatsApp">
             💬
+          </a>
+        ) : null}
+        {tg ? (
+          <a href={tg} target="_blank" rel="noreferrer" className={iconBtn} title="Telegram">
+            ✈️
           </a>
         ) : null}
         {maps ? (
