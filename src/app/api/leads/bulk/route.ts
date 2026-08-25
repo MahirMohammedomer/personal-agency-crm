@@ -2,7 +2,17 @@ import { requireAuth } from "@/lib/server/auth";
 import { NextResponse } from "next/server";
 import { inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { activities, leads } from "@/db/schema";
+import {
+  activities,
+  contacts,
+  followUps,
+  leadNotes,
+  leads,
+  projectFiles,
+  projectNotes,
+  projects,
+  tasks,
+} from "@/db/schema";
 import { parseTier } from "@/lib/import-mapping";
 
 export const dynamic = "force-dynamic";
@@ -85,7 +95,27 @@ export async function POST(request: Request) {
       break;
     }
     case "delete": {
-      await db.delete(leads).where(inArray(leads.id, ids));
+      try {
+        const relatedProjects = await db
+          .select({ id: projects.id })
+          .from(projects)
+          .where(inArray(projects.leadId, ids));
+        const projectIds = relatedProjects.map((p) => p.id);
+        if (projectIds.length) {
+          await db.delete(tasks).where(inArray(tasks.projectId, projectIds));
+          await db.delete(projectNotes).where(inArray(projectNotes.projectId, projectIds));
+          await db.delete(projectFiles).where(inArray(projectFiles.projectId, projectIds));
+          await db.delete(projects).where(inArray(projects.id, projectIds));
+        }
+        await db.delete(leadNotes).where(inArray(leadNotes.leadId, ids));
+        await db.delete(activities).where(inArray(activities.leadId, ids));
+        await db.delete(followUps).where(inArray(followUps.leadId, ids));
+        await db.delete(contacts).where(inArray(contacts.leadId, ids));
+        await db.delete(leads).where(inArray(leads.id, ids));
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return NextResponse.json({ error: `Could not delete: ${message}` }, { status: 500 });
+      }
       break;
     }
     default:
