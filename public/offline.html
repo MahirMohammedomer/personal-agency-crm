@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Offline · Meda CRM</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+        background: #fafafb; color: #17171c; padding: 24px; text-align: center;
+      }
+      @media (prefers-color-scheme: dark) { body { background: #0a0a0d; color: #f4f4f7; } }
+      .card { max-width: 380px; }
+      .logo {
+        width: 52px; height: 52px; border-radius: 16px; margin: 0 auto 18px;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff;
+        display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700;
+      }
+      h1 { font-size: 20px; margin: 0 0 8px; letter-spacing: -0.02em; }
+      p { font-size: 14px; line-height: 1.6; opacity: 0.7; margin: 0 0 22px; }
+      button {
+        border: 0; border-radius: 12px; padding: 11px 20px; font-size: 14px; font-weight: 600;
+        background: #5856d6; color: #fff; cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="logo">M</div>
+      <h1>You're offline</h1>
+      <p>
+        This page hasn't been opened on this device yet, so there's nothing cached to show.
+        Pages you've already visited keep working offline — and any changes you make are saved
+        and synced automatically once you're back online.
+      </p>
+      <button onclick="location.reload()">Try again</button>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,238 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --bg: 250 250 251;
+  --bg-elevated: 255 255 255;
+  --surface: 255 255 255;
+  --surface-muted: 246 246 248;
+  --border: 226 226 232;
+  --border-strong: 208 208 216;
+  --text: 23 23 28;
+  --text-muted: 108 110 120;
+  --text-subtle: 148 150 160;
+  --accent: 88 86 214;
+  --accent-soft: 238 238 255;
+  --shadow-color: 15 18 34;
+  --glass: 255 255 255;
+}
+
+.dark {
+  --bg: 10 10 13;
+  --bg-elevated: 22 22 27;
+  --surface: 24 24 29;
+  --surface-muted: 31 31 38;
+  --border: 44 44 53;
+  --border-strong: 62 62 74;
+  --text: 244 244 247;
+  --text-muted: 158 160 172;
+  --text-subtle: 118 120 132;
+  --accent: 129 127 255;
+  --accent-soft: 38 36 66;
+  --shadow-color: 0 0 0;
+  --glass: 26 26 32;
+}
+
+@theme inline {
+  --color-bg: rgb(var(--bg));
+  --color-bg-elevated: rgb(var(--bg-elevated));
+  --color-surface: rgb(var(--surface));
+  --color-surface-muted: rgb(var(--surface-muted));
+  --color-line: rgb(var(--border));
+  --color-line-strong: rgb(var(--border-strong));
+  --color-ink: rgb(var(--text));
+  --color-muted: rgb(var(--text-muted));
+  --color-subtle: rgb(var(--text-subtle));
+  --color-accent: rgb(var(--accent));
+  --color-accent-soft: rgb(var(--accent-soft));
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
+    Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --radius-xl2: 1.25rem;
+}
+
+* {
+  border-color: rgb(var(--border));
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: rgb(var(--bg));
+  color: rgb(var(--text));
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  letter-spacing: -0.011em;
+}
+
+::selection {
+  background: rgb(var(--accent) / 0.22);
+}
+
+/* Scrollbars */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgb(var(--border-strong) / 0.7);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--text-subtle) / 0.7);
+  background-clip: content-box;
+}
+
+@layer components {
+  .glass {
+    background: rgb(var(--glass) / 0.72);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+  }
+
+  .card {
+    background: rgb(var(--surface));
+    border: 1px solid rgb(var(--border));
+    border-radius: 1rem;
+    box-shadow:
+      0 1px 2px rgb(var(--shadow-color) / 0.04),
+      0 8px 24px -18px rgb(var(--shadow-color) / 0.28);
+  }
+
+  .card-hover {
+    transition:
+      transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 0.22s ease;
+  }
+  .card-hover:hover {
+    transform: translateY(-2px);
+    border-color: rgb(var(--border-strong));
+    box-shadow:
+      0 2px 4px rgb(var(--shadow-color) / 0.05),
+      0 20px 40px -24px rgb(var(--shadow-color) / 0.4);
+  }
+
+  .field {
+    width: 100%;
+    background: rgb(var(--surface-muted));
+    border: 1px solid rgb(var(--border));
+    border-radius: 0.75rem;
+    padding: 0.55rem 0.75rem;
+    font-size: 0.875rem;
+    color: rgb(var(--text));
+    outline: none;
+    transition:
+      border-color 0.16s ease,
+      box-shadow 0.16s ease,
+      background 0.16s ease;
+  }
+  .field::placeholder {
+    color: rgb(var(--text-subtle));
+  }
+  .field:focus {
+    background: rgb(var(--surface));
+    border-color: rgb(var(--accent) / 0.55);
+    box-shadow: 0 0 0 3px rgb(var(--accent) / 0.16);
+  }
+  select.field {
+    appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, rgb(var(--text-subtle)) 50%),
+      linear-gradient(135deg, rgb(var(--text-subtle)) 50%, transparent 50%);
+    background-position:
+      calc(100% - 17px) calc(50% + 1px),
+      calc(100% - 12px) calc(50% + 1px);
+    background-size:
+      5px 5px,
+      5px 5px;
+    background-repeat: no-repeat;
+    padding-right: 2rem;
+  }
+
+  .hairline {
+    border-bottom: 1px solid rgb(var(--border));
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-pop-in {
+  animation: pop-in 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-fade-in {
+  animation: fade-in 0.2s ease both;
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: rgb(var(--surface-muted));
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(var(--border) / 0.85), transparent);
+  animation: shimmer 1.4s infinite;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.drag-over {
+  background: rgb(var(--accent) / 0.06);
+  border-color: rgb(var(--accent) / 0.45) !important;
+}
+.dragging {
+  opacity: 0.4;
+}
