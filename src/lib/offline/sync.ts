@@ -237,7 +237,15 @@ function applyOverlay(url: string, payload: unknown, overlay: Overlay): unknown 
 
 /* -------------------------------- fetching -------------------------------- */
 
-const CACHEABLE = /^\/api\/(leads|projects|tasks|followups|notes|activities|dashboard|analytics|calendar|settings|contacts|project-notes|search)/;
+const CACHEABLE =
+  /^\/api\/(leads|projects|tasks|followups|notes|activities|dashboard|analytics|calendar|settings|contacts|project-notes|search)/;
+
+/** How long memory/IDB data is treated as fresh enough to skip waiting on network. */
+const FRESH_MS = 45_000;
+
+type MemoryEntry = { data: unknown; at: number };
+const memoryCache = new Map<string, MemoryEntry>();
+const inflight = new Map<string, Promise<unknown>>();
 
 export class OfflineQueuedError extends Error {
   constructor() {
@@ -246,27 +254,106 @@ export class OfflineQueuedError extends Error {
   }
 }
 
+async function networkGet<T>(url: string): Promise<T> {
+  const res = await fetch(url, { cache: "no-store" });
+  if (res.status === 401) throw new Error("Not authenticated");
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error((body as { error?: string }).error ?? `Request failed (${res.status})`);
+  }
+  return (await res.json()) as T;
+}
+
+async function storeCache(url: string, data: unknown) {
+  memoryCache.set(url, { data, at: Date.now() });
+  await cachePut(url, data).catch(() => undefined);
+}
+
+async function readIdb<T>(url: string): Promise<{ data: T; at: number } | null> {
+  const cached = await cacheGet<T>(url);
+  if (!cached) return null;
+  memoryCache.set(url, { data: cached.data, at: cached.at });
+  return { data: cached.data, at: cached.at };
+}
+
+/**
+ * Stale-while-revalidate GET:
+ * 1. Memory hit (fresh) → return instantly, optional background refresh
+ * 2. Memory/IDB hit (stale) → return instantly, revalidate in background
+ * 3. Cold → wait for network (or IDB if offline)
+ *
+ * Mutations should call `invalidateApiCache` so the next read is fresh.
+ */
 export async function offlineGet<T>(url: string): Promise<T> {
   const cacheable = CACHEABLE.test(url);
-  try {
-    const res = await fetch(url, { cache: "no-store" });
-    if (res.status === 401) throw new Error("Not authenticated");
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error((body as { error?: string }).error ?? `Request failed (${res.status})`);
+  const overlay = await buildOverlay();
+
+  if (cacheable) {
+    const mem = memoryCache.get(url);
+    if (mem) {
+      const age = Date.now() - mem.at;
+      // Always schedule a quiet background refresh; never block the UI on it.
+      void revalidateInBackground(url);
+      return applyOverlay(url, mem.data, overlay) as T;
     }
-    const data = (await res.json()) as T;
-    if (cacheable) await cachePut(url, data);
-    emit({ online: true });
-    const overlay = await buildOverlay();
+
+    const idb = await readIdb<T>(url);
+    if (idb) {
+      void revalidateInBackground(url);
+      return applyOverlay(url, idb.data, overlay) as T;
+    }
+  }
+
+  // Cold path — wait for network (deduped)
+  try {
+    const data = await fetchDeduped<T>(url);
+    if (cacheable) await storeCache(url, data);
+    emit({ online: true, lastSyncedAt: Date.now() });
     return applyOverlay(url, data, overlay) as T;
   } catch (error) {
     if (!cacheable) throw error;
-    const cached = await cacheGet<T>(url);
+    const cached = await readIdb<T>(url);
     if (!cached) throw error;
-    emit({ online: navigator.onLine });
-    const overlay = await buildOverlay();
+    emit({ online: typeof navigator !== "undefined" ? navigator.onLine : true });
     return applyOverlay(url, cached.data, overlay) as T;
+  }
+}
+
+function fetchDeduped<T>(url: string): Promise<T> {
+  const existing = inflight.get(url);
+  if (existing) return existing as Promise<T>;
+  const promise = networkGet<T>(url).finally(() => {
+    inflight.delete(url);
+  });
+  inflight.set(url, promise);
+  return promise;
+}
+
+async function revalidateInBackground(url: string) {
+  if (typeof navigator !== "undefined" && !navigator.onLine) return;
+  if (inflight.has(url)) return;
+  try {
+    const data = await fetchDeduped(url);
+    await storeCache(url, data);
+    emit({ online: true, lastSyncedAt: Date.now() });
+    // Notify open pages that fresher data is available
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("meda:cache-updated", { detail: { url } }));
+    }
+  } catch {
+    /* keep serving stale data */
+  }
+}
+
+/** Drop cached GETs so the next read hits the network. Call after mutations. */
+export function invalidateApiCache(match?: string | RegExp) {
+  if (!match) {
+    memoryCache.clear();
+    return;
+  }
+  for (const key of [...memoryCache.keys()]) {
+    const hit = typeof match === "string" ? key.includes(match) : match.test(key);
+    if (hit) memoryCache.delete(key);
   }
 }
 
@@ -289,6 +376,8 @@ export async function offlineSend<T>(url: string, method: string, body?: unknown
       const payload = await res.json().catch(() => ({}));
       throw new Error((payload as { error?: string }).error ?? `Request failed (${res.status})`);
     }
+    // Any successful write invalidates related list/detail caches
+    invalidateApiCache("/api/");
     emit({ online: true, lastSyncedAt: Date.now() });
     return (await res.json()) as T;
   } catch (error) {
@@ -361,6 +450,7 @@ export async function flushOutbox(): Promise<void> {
 
   flushing = false;
   await refreshCounts();
+  invalidateApiCache("/api/");
   emit({
     syncing: false,
     lastSyncedAt: Date.now(),
