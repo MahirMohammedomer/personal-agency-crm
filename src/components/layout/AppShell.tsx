@@ -77,9 +77,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Load once on mount + periodically — NOT on every route change
   useEffect(() => {
     void refreshBadge();
-  }, [refreshBadge, pathname]);
+    const id = window.setInterval(() => void refreshBadge(), 60_000);
+    const onSynced = () => void refreshBadge();
+    window.addEventListener("meda:synced", onSynced);
+    window.addEventListener("meda:cache-updated", onSynced);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("meda:synced", onSynced);
+      window.removeEventListener("meda:cache-updated", onSynced);
+    };
+  }, [refreshBadge]);
 
   useEffect(() => {
     setMobileOpen(false);
