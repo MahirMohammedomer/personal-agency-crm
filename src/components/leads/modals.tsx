@@ -248,7 +248,7 @@ export function LeadFormModal({
                 {tag}
                 <button
                   onClick={() => setTags((prev) => prev.filter((t) => t !== tag))}
-                  className="opacity-60 hover:opacity-100"
+                  className="-m-1 p-1 opacity-60 hover:opacity-100"
                 >
                   ✕
                 </button>

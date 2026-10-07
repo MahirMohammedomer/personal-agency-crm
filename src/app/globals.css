@@ -35,6 +35,8 @@
 }
 
 @theme inline {
+  /* Extra small breakpoint — 400px and below (iPhone SE / old Androids) */
+  --breakpoint-xs: 25rem;
   --color-bg: rgb(var(--bg));
   --color-bg-elevated: rgb(var(--bg-elevated));
   --color-surface: rgb(var(--surface));
@@ -60,6 +62,13 @@ body {
   height: 100%;
 }
 
+@supports (height: 100dvh) {
+  html,
+  body {
+    height: 100dvh;
+  }
+}
+
 body {
   background-color: rgb(var(--bg));
   color: rgb(var(--text));
@@ -67,6 +76,52 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   letter-spacing: -0.011em;
+  /* No horizontal page scroll, ever (long emails, tables, URLs…) */
+  overflow-x: clip;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/*
+ * iOS Safari zooms the whole page when a field smaller than 16px gets focus.
+ * Keep controls at 16px on small screens so typing never zooms.
+ */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  .field {
+    min-height: 44px;
+  }
+}
+
+/* Touch devices: no tap flash, no 300ms delay, comfortable targets */
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  a,
+  summary {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 ::selection {
@@ -160,6 +215,36 @@ body {
 
   .hairline {
     border-bottom: 1px solid rgb(var(--border));
+  }
+}
+
+
+/* --------------------------------- mobile utilities --------------------------------- */
+@layer utilities {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .scroll-x {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .scroll-x::-webkit-scrollbar {
+    display: none;
+  }
+  /* Fades the edge of horizontally scrollable rows so it's obvious they scroll */
+  .scroll-x-hint {
+    mask-image: linear-gradient(to right, black calc(100% - 2.5rem), transparent);
+    -webkit-mask-image: linear-gradient(to right, black calc(100% - 2.5rem), transparent);
+  }
+  .tap {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
   }
 }
 

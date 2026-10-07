@@ -1,32 +1,57 @@
+"use client";
+
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Star } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { Badge, Dropdown, MenuItem, MenuLabel } from "@/components/ui/ui";
-import { leadsRepo } from "@/lib/repos";
-import { TIER_META, cn } from "@/lib/utils";
-import { LEAD_STATUSES, normalizeStatus, type Lead, type LeadStatus, type Tier } from "@/lib/types";
+import { useToast } from "@/components/ui/toast";
+import { apiPatch } from "@/lib/api";
+import { cn, googleImagesUrl, googleSearchUrl } from "@/lib/utils";
+import { LEAD_STATUSES, TIER_LABELS, TIER_STYLES, STATUS_STYLES, type Lead, type LeadStatus } from "@/lib/types";
+
+/** Persist a single-field edit from anywhere in the list UI. */
+function useLeadPatch(lead: Lead, onSaved?: (patch: Partial<Lead>) => void) {
+  const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
+  return {
+    saving,
+    save: async (patch: Partial<Lead>, message = "Saved") => {
+      setSaving(true);
+      try {
+        const result = await apiPatch<{ lead: Lead }>(`/api/leads/${lead.id}`, patch);
+        onSaved?.(result?.lead ?? patch);
+        toast(message, "success");
+      } catch (error) {
+        toast((error as Error).message || "Could not save", "error");
+      } finally {
+        setSaving(false);
+      }
+    },
+  };
+}
 
 export function TierBadge({
   lead,
   size = "sm",
   editable = true,
-  onChange,
+  onSaved,
 }: {
   lead: Lead;
   size?: "xs" | "sm";
   editable?: boolean;
-  onChange?: (t: Tier) => void;
+  onSaved?: (tier: number | null) => void;
 }) {
-  const meta = TIER_META[(lead.tier || 3) as Tier];
+  const { save } = useLeadPatch(lead, (patch) => onSaved?.(patch.tier ?? null));
+  const tier = lead.tier ?? 3;
   const badge = (
     <Badge
       className={cn(
         "gap-1 font-semibold",
-        meta.className,
+        TIER_STYLES[tier] ?? TIER_STYLES[5],
         size === "xs" ? "px-1.5 py-0 text-[10px]" : "px-2 py-0.5",
       )}
     >
-      <span className={cn("h-1.5 w-1.5 rounded-full", meta.dot)} />
-      {meta.short}
+      <span className={cn("h-1.5 w-1.5 rounded-full", tier === 1 ? "bg-rose-500" : "bg-current opacity-70")} />
+      T{tier}
     </Badge>
   );
 
@@ -36,6 +61,7 @@ export function TierBadge({
     <Dropdown
       trigger={({ toggle }) => (
         <button
+          type="button"
           onClick={(e) => {
             e.stopPropagation();
             toggle();
@@ -51,22 +77,26 @@ export function TierBadge({
       {({ close }) => (
         <>
           <MenuLabel>Lead tier</MenuLabel>
-          {([1, 2, 3, 4, 5] as Tier[]).map((t) => (
+          {([1, 2, 3, 4, 5] as const).map((t) => (
             <MenuItem
               key={t}
-              className={lead.tier === t ? "bg-slate-100 dark:bg-white/10" : ""}
-              onClick={async () => {
-                await leadsRepo.update(lead.id, { tier: t });
-                onChange?.(t);
+              className={lead.tier === t ? "bg-surface-muted" : ""}
+              onClick={() => {
+                void save({ tier: t }, `Tier ${t} set`);
                 close();
               }}
             >
-              <span className="flex items-center gap-2">
-                <span className={cn("h-2 w-2 rounded-full", TIER_META[t].dot)} />
-                {TIER_META[t].label}
-              </span>
+              {TIER_LABELS[t]}
             </MenuItem>
           ))}
+          <MenuItem
+            onClick={() => {
+              void save({ tier: null }, "Tier cleared");
+              close();
+            }}
+          >
+            No tier
+          </MenuItem>
         </>
       )}
     </Dropdown>
@@ -77,31 +107,39 @@ export function ScoreChip({
   lead,
   editable = true,
   className,
+  onSaved,
 }: {
   lead: Lead;
   editable?: boolean;
   className?: string;
+  onSaved?: (score: number) => void;
 }) {
+  const { save } = useLeadPatch(lead, (patch) => {
+    if (typeof patch.leadScore === "number") onSaved?.(patch.leadScore);
+  });
   const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(String(lead.lead_score ?? 0));
+  const [value, setValue] = useState(String(lead.leadScore ?? 0));
   const ref = useRef<HTMLInputElement>(null);
 
-  useEffect(() => setValue(String(lead.lead_score ?? 0)), [lead.lead_score]);
+  useEffect(() => setValue(String(lead.leadScore ?? 0)), [lead.leadScore]);
   useEffect(() => {
     if (editing) ref.current?.select();
   }, [editing]);
 
-  const commit = async () => {
+  const commit = () => {
     setEditing(false);
     const n = Math.max(0, Math.min(100, Number(value) || 0));
-    if (n !== lead.lead_score) await leadsRepo.update(lead.id, { lead_score: n });
-    else setValue(String(lead.lead_score ?? 0));
+    if (n === (lead.leadScore ?? 0)) {
+      setValue(String(lead.leadScore ?? 0));
+      return;
+    }
+    void save({ leadScore: n });
   };
 
   if (!editable) {
     return (
-      <span className={cn("text-[12px] font-semibold tabular-nums text-slate-600 dark:text-slate-300", className)}>
-        {lead.lead_score ?? 0}
+      <span className={cn("text-[12px] font-semibold tabular-nums text-muted", className)}>
+        {lead.leadScore ?? 0}
       </span>
     );
   }
@@ -111,6 +149,7 @@ export function ScoreChip({
       <input
         ref={ref}
         type="number"
+        inputMode="numeric"
         min={0}
         max={100}
         value={value}
@@ -121,11 +160,11 @@ export function ScoreChip({
           if (e.key === "Enter") commit();
           if (e.key === "Escape") {
             setEditing(false);
-            setValue(String(lead.lead_score ?? 0));
+            setValue(String(lead.leadScore ?? 0));
           }
         }}
         className={cn(
-          "w-12 rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-center text-[12px] font-semibold tabular-nums outline-none dark:border-white/20 dark:bg-white/10 dark:text-white",
+          "w-14 rounded-md border border-line-strong bg-surface px-1.5 py-1 text-center text-[13px] font-semibold tabular-nums text-ink outline-none",
           className,
         )}
       />
@@ -134,17 +173,18 @@ export function ScoreChip({
 
   return (
     <button
+      type="button"
       onClick={(e) => {
         e.stopPropagation();
         setEditing(true);
       }}
       title="Edit lead score (manual only)"
       className={cn(
-        "rounded-md px-1.5 py-0.5 text-[12px] font-semibold tabular-nums text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10",
+        "rounded-md px-1.5 py-0.5 text-[12px] font-semibold tabular-nums text-muted transition hover:bg-surface-muted",
         className,
       )}
     >
-      {lead.lead_score ?? 0}
+      {lead.leadScore ?? 0}
     </button>
   );
 }
@@ -153,31 +193,35 @@ export function ScoreChip({
 export function ValueEstimate({
   lead,
   className,
+  onSaved,
 }: {
   lead: Lead;
   className?: string;
+  onSaved?: (value: number | null) => void;
 }) {
+  const { save } = useLeadPatch(lead, (patch) => onSaved?.(patch.potentialValue ?? null));
   const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(String(lead.potential_value ?? ""));
+  const [value, setValue] = useState(String(lead.potentialValue ?? ""));
   const ref = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setValue(lead.potential_value != null ? String(lead.potential_value) : "");
-  }, [lead.potential_value]);
+    setValue(lead.potentialValue != null ? String(lead.potentialValue) : "");
+  }, [lead.potentialValue]);
 
   useEffect(() => {
     if (editing) ref.current?.focus();
   }, [editing]);
 
-  const commit = async () => {
+  const commit = () => {
     setEditing(false);
-    const n = value.trim() === "" ? null : Number(value);
+    const raw = value.trim();
+    const n = raw === "" ? null : Number(raw);
     if (n !== null && (Number.isNaN(n) || n < 0)) {
-      setValue(lead.potential_value != null ? String(lead.potential_value) : "");
+      setValue(lead.potentialValue != null ? String(lead.potentialValue) : "");
       return;
     }
-    if (n === (lead.potential_value ?? null)) return;
-    await leadsRepo.update(lead.id, { potential_value: n });
+    if (n === (lead.potentialValue ?? null)) return;
+    void save({ potentialValue: n });
   };
 
   if (editing) {
@@ -185,6 +229,7 @@ export function ValueEstimate({
       <input
         ref={ref}
         type="number"
+        inputMode="numeric"
         min={0}
         step={1000}
         value={value}
@@ -193,14 +238,14 @@ export function ValueEstimate({
         onChange={(e) => setValue(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => {
-          if (e.key === "Enter") void commit();
+          if (e.key === "Enter") commit();
           if (e.key === "Escape") {
             setEditing(false);
-            setValue(lead.potential_value != null ? String(lead.potential_value) : "");
+            setValue(lead.potentialValue != null ? String(lead.potentialValue) : "");
           }
         }}
         className={cn(
-          "w-[88px] rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[11.5px] font-semibold tabular-nums outline-none dark:border-white/20 dark:bg-white/10 dark:text-white",
+          "w-[92px] rounded-md border border-line-strong bg-surface px-1.5 py-1 text-[12.5px] font-semibold tabular-nums text-ink outline-none",
           className,
         )}
       />
@@ -216,12 +261,12 @@ export function ValueEstimate({
       }}
       title="Set deal estimate (no project needed)"
       className={cn(
-        "rounded-md px-1.5 py-0.5 text-[11.5px] font-semibold tabular-nums text-emerald-700 transition hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-500/10",
+        "rounded-md px-1.5 py-0.5 text-[11.5px] font-semibold tabular-nums text-emerald-700 transition hover:bg-emerald-500/10 dark:text-emerald-400",
         className,
       )}
     >
-      {lead.potential_value != null && lead.potential_value > 0
-        ? `ETB ${Number(lead.potential_value).toLocaleString()}`
+      {lead.potentialValue != null && lead.potentialValue > 0
+        ? `ETB ${Number(lead.potentialValue).toLocaleString()}`
         : "Set value"}
     </button>
   );
@@ -231,27 +276,37 @@ export function StatusSelect({
   lead,
   compact = false,
   className,
+  onSaved,
 }: {
   lead: Lead;
   compact?: boolean;
   className?: string;
+  onSaved?: (status: LeadStatus) => void;
 }) {
+  const { save } = useLeadPatch(lead, (patch) => {
+    if (patch.status) onSaved?.(patch.status as LeadStatus);
+  });
+  const status = (lead.status as LeadStatus) ?? "New";
+  const style = STATUS_STYLES[status] ?? STATUS_STYLES.New;
+
   return (
     <Dropdown
       trigger={({ toggle }) => (
         <button
+          type="button"
           onClick={(e) => {
             e.stopPropagation();
             toggle();
           }}
           className={cn(
-            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset transition hover:opacity-80",
-            STATUS_RING[normalizeStatus(lead.status)] || STATUS_RING.New,
+            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium transition hover:opacity-80",
+            style.chip,
             className,
           )}
           title="Change status"
         >
-          {normalizeStatus(lead.status)}
+          <span className={cn("h-1.5 w-1.5 rounded-full", style.dot)} />
+          {status}
           {!compact && <ChevronDown className="h-3 w-3 opacity-60" />}
         </button>
       )}
@@ -263,9 +318,9 @@ export function StatusSelect({
           {LEAD_STATUSES.map((s) => (
             <MenuItem
               key={s}
-              className={normalizeStatus(lead.status) === s ? "bg-slate-100 dark:bg-white/10" : ""}
-              onClick={async () => {
-                await leadsRepo.update(lead.id, { status: s as LeadStatus });
+              className={status === s ? "bg-surface-muted" : ""}
+              onClick={() => {
+                void save({ status: s });
                 close();
               }}
             >
@@ -278,48 +333,16 @@ export function StatusSelect({
   );
 }
 
-const STATUS_RING: Record<string, string> = {
-  New: "bg-slate-500/12 text-slate-600 ring-slate-500/25 dark:text-slate-300",
-  Qualified: "bg-sky-500/12 text-sky-600 ring-sky-500/25 dark:text-sky-400",
-  "Prototype Ready": "bg-violet-500/12 text-violet-600 ring-violet-500/25 dark:text-violet-400",
-  "To Call": "bg-amber-500/12 text-amber-700 ring-amber-500/25 dark:text-amber-400",
-  "No Answer": "bg-orange-500/12 text-orange-700 ring-orange-500/25 dark:text-orange-400",
-  "In Talk": "bg-blue-500/12 text-blue-600 ring-blue-500/25 dark:text-blue-400",
-  Won: "bg-emerald-500/12 text-emerald-600 ring-emerald-500/25 dark:text-emerald-400",
-  Passed: "bg-rose-500/12 text-rose-600 ring-rose-500/25 dark:text-rose-400",
-};
-
-export function PinButton({ lead, className }: { lead: Lead; className?: string }) {
-  return (
-    <button
-      onClick={async (e) => {
-        e.stopPropagation();
-        await leadsRepo.update(lead.id, { is_pinned: !lead.is_pinned });
-      }}
-      className={cn(
-        "rounded-md p-1 transition",
-        lead.is_pinned
-          ? "text-amber-500"
-          : "text-slate-300 hover:bg-slate-100 hover:text-slate-500 dark:text-slate-600 dark:hover:bg-white/10",
-        className,
-      )}
-      title={lead.is_pinned ? "Unpin" : "Pin"}
-      aria-label="Pin"
-    >
-      <Star className="h-3.5 w-3.5" fill={lead.is_pinned ? "currentColor" : "none"} />
-    </button>
-  );
-}
-
 export function WebsiteCell({ lead }: { lead: Lead }) {
-  const has = lead.website_status === "has_website" && lead.website;
+  const raw = lead.website?.trim();
+  const has = Boolean(raw) && !/^(n\/?a|none|no|-|null)$/i.test(raw as string);
   if (has) {
-    const url = /^https?:\/\//i.test(lead.website!) ? lead.website! : `https://${lead.website}`;
+    const url = /^https?:\/\//i.test(raw as string) ? (raw as string) : `https://${raw}`;
     return (
       <a
         href={url}
         target="_blank"
-        rel="noreferrer"
+        rel="noreferrer noopener"
         onClick={(e) => e.stopPropagation()}
         className="text-[12px] text-emerald-600 hover:underline dark:text-emerald-400"
         title={url}
@@ -329,8 +352,52 @@ export function WebsiteCell({ lead }: { lead: Lead }) {
     );
   }
   return (
-    <span className="text-[12px] text-red-500/90 dark:text-red-400" title="No website">
+    <span className="text-[12px] text-rose-500/90 dark:text-rose-400" title="No website">
       ❌ No
     </span>
+  );
+}
+
+/** Quick “research this business on Google” link used in tables/cards. */
+export function ResearchLink({ lead, className }: { lead: Lead; className?: string }) {
+  return (
+    <Dropdown
+      trigger={({ toggle }) => (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            toggle();
+          }}
+          className={cn("rounded-md px-1.5 py-1 text-[12px] text-muted transition hover:bg-surface-muted", className)}
+          title="Research"
+        >
+          🔎
+        </button>
+      )}
+      panelClassName="w-52"
+    >
+      {({ close }) => (
+        <>
+          <MenuLabel>Research</MenuLabel>
+          <MenuItem
+            onClick={() => {
+              window.open(googleSearchUrl(lead), "_blank", "noopener");
+              close();
+            }}
+          >
+            Google search
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              window.open(googleImagesUrl(lead), "_blank", "noopener");
+              close();
+            }}
+          >
+            Google images
+          </MenuItem>
+        </>
+      )}
+    </Dropdown>
   );
 }

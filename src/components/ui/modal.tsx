@@ -60,12 +60,12 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         className={cn(
-          "animate-pop-in relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-3xl border border-line bg-surface shadow-2xl sm:rounded-2xl",
+          "animate-pop-in relative z-10 flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-line bg-surface shadow-2xl sm:max-h-[90vh] sm:rounded-2xl",
           widths[size],
         )}
       >
         {title ? (
-          <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-4">
+          <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-3.5 pt-[max(0.875rem,env(safe-area-inset-top))] sm:px-6 sm:py-4 sm:pt-4">
             <div>
               <h2 className="text-[17px] font-semibold tracking-[-0.01em]">{title}</h2>
               {description ? <p className="mt-1 text-[13px] text-muted">{description}</p> : null}
@@ -79,9 +79,9 @@ export function Modal({
             </button>
           </div>
         ) : null}
-        <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">{children}</div>
         {footer ? (
-          <div className="flex items-center justify-end gap-2 border-t border-line bg-surface-muted/60 px-6 py-4">
+          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line bg-surface-muted/60 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-4 sm:pb-4">
             {footer}
           </div>
         ) : null}

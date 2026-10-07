@@ -182,7 +182,7 @@ function Group({
                 {tel ? (
                   <a
                     href={tel}
-                    className="inline-flex h-8 items-center rounded-[10px] border border-line px-2.5 text-[12.5px] hover:bg-surface-muted"
+                    className="inline-flex h-10 items-center rounded-[10px] border border-line px-2.5 text-[12.5px] hover:bg-surface-muted sm:h-8"
                     title={item.lead?.phone ?? ""}
                   >
                     📞
@@ -193,7 +193,7 @@ function Group({
                     href={wa}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex h-8 items-center rounded-[10px] border border-line px-2.5 text-[12.5px] hover:bg-surface-muted"
+                    className="inline-flex h-10 items-center rounded-[10px] border border-line px-2.5 text-[12.5px] hover:bg-surface-muted sm:h-8"
                     title="WhatsApp"
                   >
                     💬
@@ -208,7 +208,7 @@ function Group({
                       ✓ Done
                     </Button>
                     <select
-                      className="field h-8 w-[120px] py-0 text-[12px]"
+                      className="field h-10 w-[120px] py-0 text-[12px] sm:h-8"
                       defaultValue=""
                       onChange={(e) => {
                         if (!e.target.value) return;

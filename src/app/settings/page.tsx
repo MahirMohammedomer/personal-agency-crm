@@ -216,7 +216,7 @@ export default function SettingsPage() {
                 {tag}
                 <button
                   onClick={() => save({ tagPresets: settings.tagPresets.filter((t) => t !== tag) })}
-                  className="opacity-60 hover:opacity-100"
+                  className="-m-1.5 p-1.5 opacity-60 hover:opacity-100"
                 >
                   ✕
                 </button>

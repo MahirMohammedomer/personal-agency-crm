@@ -149,7 +149,7 @@ function LoginInner() {
           ) : null}
 
           {mode === "login" ? (
-            <label className="flex items-center gap-2 text-[13px] text-muted">
+            <label className="flex min-h-10 items-center gap-2 text-[13px] text-muted sm:min-h-0">
               <input
                 type="checkbox"
                 checked={remember}
@@ -195,7 +195,7 @@ function LoginInner() {
                   setMode("forgot");
                   setError("");
                 }}
-                className="text-subtle hover:text-accent"
+                className="py-2 text-subtle hover:text-accent"
               >
                 Forgot password?
               </button>
@@ -207,7 +207,7 @@ function LoginInner() {
                   setError("");
                   setInfo("");
                 }}
-                className="text-subtle hover:text-accent"
+                className="py-2 text-subtle hover:text-accent"
               >
                 ← Back to sign in
               </button>

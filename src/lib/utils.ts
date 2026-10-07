@@ -88,6 +88,22 @@ export function daysBetween(fromISO: string, toISOStr: string): number {
   return Math.round((b - a) / 86400000);
 }
 
+/** Human follow-up label: “Today 09:30”, “Tomorrow 14:00”, “3d overdue”, “Mar 4”. */
+export function dueLabel(iso?: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diffDays = Math.round((startOf(d) - startOf(new Date())) / 86400000);
+  const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  if (diffDays === 0) return `Today ${time}`;
+  if (diffDays === 1) return `Tomorrow ${time}`;
+  if (diffDays === -1) return `Yesterday ${time}`;
+  if (diffDays < 0) return `${Math.abs(diffDays)}d overdue`;
+  if (diffDays < 7) return `In ${diffDays}d`;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 export function timeAgo(value: string | Date | null | undefined): string {
   if (!value) return "—";
   const d = typeof value === "string" ? new Date(value) : value;
@@ -194,6 +210,21 @@ export function hasSocial(lead: Lead): boolean {
       socialUrl("telegram", lead.telegram) ||
       socialUrl("linkedin", lead.linkedin),
   );
+}
+
+/* -------------------------------- research -------------------------------- */
+
+export function googleSearchUrl(
+  lead: Pick<Lead, "businessName" | "city" | "address" | "phone">,
+): string {
+  const q = [lead.businessName, lead.city, lead.phone].filter(Boolean).join(" ");
+  return `https://www.google.com/search?q=${encodeURIComponent(q || lead.businessName)}`;
+}
+
+export function googleImagesUrl(
+  lead: Pick<Lead, "businessName" | "city" | "address" | "phone">,
+): string {
+  return `${googleSearchUrl(lead)}&tbm=isch`;
 }
 
 /* ------------------------------- copy helper ------------------------------ */

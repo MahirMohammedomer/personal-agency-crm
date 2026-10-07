@@ -1,54 +1,54 @@
+"use client";
+
 import React, { useState } from "react";
-import { toast } from "sonner";
 import {
-  Phone,
-  MessageCircle,
-  Send,
-  Globe,
-  MapPin,
-  Copy,
-  Pin,
-  PinOff,
-  Share2,
-  Link as LinkIcon,
   Archive,
   ArchiveRestore,
-  Search,
-  Image as ImageIcon,
-  MoreHorizontal,
-  ExternalLink,
   Check,
+  Copy,
+  ExternalLink,
+  Globe,
+  Image as ImageIcon,
+  Link as LinkIcon,
+  MapPin,
+  MessageCircle,
+  MoreHorizontal,
+  Phone,
+  Search,
+  Send,
+  Share2,
   Sparkles,
 } from "lucide-react";
-import { Button } from "@/components/ui/ui";
-import { MenuItem, MenuLabel, Dropdown } from "@/components/ui/ui";
+import { Button, Dropdown, MenuItem, MenuLabel } from "@/components/ui/ui";
 import {
   FacebookIcon as Facebook,
   InstagramIcon as Instagram,
   LinkedinIcon as Linkedin,
   TiktokIcon as Music2,
 } from "@/components/ui/socials";
+import { useToast } from "@/components/ui/toast";
+import { apiPatch } from "@/lib/api";
 import {
-  copyAllInfo,
-  copyContactInfo,
+  buildLeadInfoText,
   copyText,
-  resolveTelegram,
-  safeUrl,
+  ensureUrl,
   googleImagesUrl,
   googleSearchUrl,
+  mapsHref,
+  socialUrl,
+  telegramHref,
   telHref,
-  waHref,
-  toIntlPhone,
+  whatsappHref,
 } from "@/lib/utils";
-import { leadsRepo } from "@/lib/repos";
 import type { Lead } from "@/lib/types";
 import { WebsiteBriefDialog } from "@/components/leads/WebsiteBriefDialog";
 
 export function useCopy() {
+  const { toast } = useToast();
   return async (text: string, label = "Copied") => {
     const ok = await copyText(text);
-    if (ok) toast.success(label);
-    else toast.error("Copy failed");
+    if (ok) toast(label, "success");
+    else toast("Copy failed — long-press to copy manually", "error");
     return ok;
   };
 }
@@ -76,15 +76,12 @@ export function ActionBtn({
   active,
   className,
 }: ActionBtnProps) {
-  // Icon-only actions — label stays in title/aria for accessibility
-  const cls =
-    size === "sm"
-      ? "h-8 w-8 shrink-0 rounded-lg p-0"
-      : "h-10 w-10 shrink-0 rounded-xl p-0";
+  // Icon-only actions — the label stays in title/aria for accessibility.
+  const cls = size === "sm" ? "h-9 w-9 shrink-0 rounded-lg p-0" : "h-11 w-11 shrink-0 rounded-xl p-0";
   const content = (
     <Button
       variant={active ? "secondary" : "outline"}
-      className={`${cls} font-medium ${active ? "ring-1 ring-slate-900/20 dark:ring-white/20" : ""} ${className || ""}`}
+      className={`${cls} font-medium ${active ? "ring-1 ring-slate-900/20 dark:ring-white/20" : ""} ${className ?? ""}`}
       disabled={disabled}
       title={label}
       aria-label={label}
@@ -98,7 +95,7 @@ export function ActionBtn({
   );
   if (href && !disabled) {
     return (
-      <a href={href} target={target} rel="noreferrer" onClick={(e) => e.stopPropagation()} title={label}>
+      <a href={href} target={target} rel="noreferrer noopener" onClick={(e) => e.stopPropagation()} title={label}>
         {content}
       </a>
     );
@@ -106,75 +103,79 @@ export function ActionBtn({
   return content;
 }
 
+/** Telegram chat: username link when we have one, otherwise the phone deep-link. */
 export function TelegramButton({ lead, size = "sm" }: { lead: Lead; size?: "sm" | "md" }) {
-  const res = resolveTelegram(lead);
   const copy = useCopy();
+  const usernameUrl = socialUrl("telegram", lead.telegram);
+  const phoneUrl = telegramHref(lead.phone);
+  const url = usernameUrl ?? phoneUrl;
+  if (!url) return null;
 
-  if (res.kind === "none") return null;
-
-  // Phone-based Telegram: only open the menu — never navigate until user picks an option
-  if (res.kind === "phone") {
+  if (usernameUrl) {
     return (
-      <Dropdown
-        trigger={({ toggle }) => (
-          <ActionBtn
-            size={size}
-            icon={<Send className="h-3.5 w-3.5" />}
-            label="Telegram"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              toggle();
-            }}
-          />
-        )}
-        panelClassName="w-56"
-      >
-        {({ close }) => (
-          <>
-            <MenuLabel>Telegram for {lead.business_name || "lead"}</MenuLabel>
-            <MenuItem
-              icon={<Send className="h-4 w-4" />}
-              onClick={() => {
-                window.location.href = res.tgUrl;
-                close();
-              }}
-            >
-              Open Telegram app
-            </MenuItem>
-            <MenuItem
-              icon={<Globe className="h-4 w-4" />}
-              onClick={() => {
-                window.open(res.webUrl, "_blank");
-                close();
-              }}
-            >
-              Open t.me/+{toIntlPhone(lead.phone)}
-            </MenuItem>
-            <MenuItem
-              icon={<Copy className="h-4 w-4" />}
-              onClick={() => {
-                void copy(res.phone, "Number copied");
-                close();
-              }}
-            >
-              Copy number {res.phone}
-            </MenuItem>
-          </>
-        )}
-      </Dropdown>
+      <a href={url} target="_blank" rel="noreferrer noopener" onClick={(e) => e.stopPropagation()}>
+        <ActionBtn size={size} icon={<Send className="h-3.5 w-3.5" />} label="Telegram" />
+      </a>
     );
   }
 
   return (
-    <a href={res.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-      <ActionBtn size={size} icon={<Send className="h-3.5 w-3.5" />} label="Telegram" />
-    </a>
+    <Dropdown
+      trigger={({ toggle }) => (
+        <ActionBtn
+          size={size}
+          icon={<Send className="h-3.5 w-3.5" />}
+          label="Telegram"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggle();
+          }}
+        />
+      )}
+      panelClassName="w-56"
+    >
+      {({ close }) => (
+        <>
+          <MenuLabel>Telegram for {lead.businessName || "lead"}</MenuLabel>
+          <MenuItem
+            icon={<Send className="h-4 w-4" />}
+            onClick={() => {
+              window.location.href = url;
+              close();
+            }}
+          >
+            Open Telegram app
+          </MenuItem>
+          <MenuItem
+            icon={<Globe className="h-4 w-4" />}
+            onClick={() => {
+              window.open(url, "_blank", "noopener");
+              close();
+            }}
+          >
+            Open in browser
+          </MenuItem>
+          {lead.phone && (
+            <MenuItem
+              icon={<Copy className="h-4 w-4" />}
+              onClick={() => {
+                void copy(lead.phone as string, "Number copied");
+                close();
+              }}
+            >
+              Copy number {lead.phone}
+            </MenuItem>
+          )}
+        </>
+      )}
+    </Dropdown>
   );
 }
 
 export function ResearchMenu({ lead, size = "sm" }: { lead: Lead; size?: "sm" | "md" }) {
-  const website = safeUrl(lead.website);
+  const website = ensureUrl(lead.website);
+  const maps = mapsHref(lead);
   return (
     <Dropdown
       trigger={({ toggle }) => (
@@ -196,87 +197,66 @@ export function ResearchMenu({ lead, size = "sm" }: { lead: Lead; size?: "sm" | 
           <MenuItem
             icon={<Search className="h-4 w-4" />}
             onClick={() => {
-              window.open(googleSearchUrl(lead), "_blank");
+              window.open(googleSearchUrl(lead), "_blank", "noopener");
               close();
             }}
           >
-            Google Search
+            Google search
           </MenuItem>
           <MenuItem
             icon={<ImageIcon className="h-4 w-4" />}
             onClick={() => {
-              window.open(googleImagesUrl(lead), "_blank");
+              window.open(googleImagesUrl(lead), "_blank", "noopener");
               close();
             }}
           >
-            Google Images
+            Google images
           </MenuItem>
-          {lead.google_maps_url ? (
+          {maps && (
             <MenuItem
               icon={<MapPin className="h-4 w-4" />}
               onClick={() => {
-                window.open(safeUrl(lead.google_maps_url) || lead.google_maps_url, "_blank");
+                window.open(maps, "_blank", "noopener");
                 close();
               }}
             >
               Google Maps
             </MenuItem>
-          ) : null}
-          {website ? (
+          )}
+          {website && (
             <MenuItem
               icon={<Globe className="h-4 w-4" />}
               onClick={() => {
-                window.open(website, "_blank");
+                window.open(website, "_blank", "noopener");
                 close();
               }}
             >
               Website
             </MenuItem>
-          ) : null}
-          {lead.facebook_url ? (
-            <MenuItem
-              icon={<Facebook className="h-4 w-4" />}
-              onClick={() => {
-                window.open(safeUrl(lead.facebook_url)!, "_blank");
-                close();
-              }}
-            >
-              Facebook
-            </MenuItem>
-          ) : null}
-          {lead.instagram_url ? (
-            <MenuItem
-              icon={<Instagram className="h-4 w-4" />}
-              onClick={() => {
-                window.open(safeUrl(lead.instagram_url)!, "_blank");
-                close();
-              }}
-            >
-              Instagram
-            </MenuItem>
-          ) : null}
-          {lead.tiktok_url ? (
-            <MenuItem
-              icon={<Music2 className="h-4 w-4" />}
-              onClick={() => {
-                window.open(safeUrl(lead.tiktok_url)!, "_blank");
-                close();
-              }}
-            >
-              TikTok
-            </MenuItem>
-          ) : null}
-          {lead.linkedin_url ? (
-            <MenuItem
-              icon={<Linkedin className="h-4 w-4" />}
-              onClick={() => {
-                window.open(safeUrl(lead.linkedin_url)!, "_blank");
-                close();
-              }}
-            >
-              LinkedIn
-            </MenuItem>
-          ) : null}
+          )}
+          {(
+            [
+              ["Facebook", lead.facebook, Facebook],
+              ["Instagram", lead.instagram, Instagram],
+              ["TikTok", lead.tiktok, Music2],
+              ["LinkedIn", lead.linkedin, Linkedin],
+            ] as const
+          ).map(([label, value, Icon]) => {
+            const url = socialUrl(label.toLowerCase() as "facebook", value);
+            if (!url) return null;
+            return (
+              <MenuItem
+                key={label}
+                icon={<Icon className="h-4 w-4" />}
+                onClick={() => {
+                  window.open(url, "_blank", "noopener");
+                  close();
+                }}
+              >
+                {label}
+              </MenuItem>
+            );
+          })}
         </>
       )}
     </Dropdown>
@@ -284,9 +264,9 @@ export function ResearchMenu({ lead, size = "sm" }: { lead: Lead; size?: "sm" | 
 }
 
 export function MessageMenu({ lead, size = "sm" }: { lead: Lead; size?: "sm" | "md" }) {
-  const hasPhone = Boolean(lead.phone);
-  const tg = resolveTelegram(lead);
-  if (!hasPhone && tg.kind === "none") return null;
+  const wa = whatsappHref(lead.phone);
+  const tg = socialUrl("telegram", lead.telegram) ?? telegramHref(lead.phone);
+  if (!wa && !tg) return null;
   return (
     <Dropdown
       trigger={({ toggle }) => (
@@ -306,49 +286,27 @@ export function MessageMenu({ lead, size = "sm" }: { lead: Lead; size?: "sm" | "
       {({ close }) => (
         <>
           <MenuLabel>Message</MenuLabel>
-          {hasPhone && (
+          {wa && (
             <MenuItem
               icon={<MessageCircle className="h-4 w-4" />}
               onClick={() => {
-                window.open(waHref(lead.phone), "_blank");
+                window.open(wa, "_blank", "noopener");
                 close();
               }}
             >
               WhatsApp
             </MenuItem>
           )}
-          {tg.kind === "username" && (
+          {tg && (
             <MenuItem
               icon={<Send className="h-4 w-4" />}
               onClick={() => {
-                window.open((tg as any).url, "_blank");
+                window.open(tg, "_blank", "noopener");
                 close();
               }}
             >
               Telegram
             </MenuItem>
-          )}
-          {tg.kind === "phone" && (
-            <>
-              <MenuItem
-                icon={<Send className="h-4 w-4" />}
-                onClick={() => {
-                  window.location.href = tg.tgUrl;
-                  close();
-                }}
-              >
-                Telegram app
-              </MenuItem>
-              <MenuItem
-                icon={<Globe className="h-4 w-4" />}
-                onClick={() => {
-                  window.open(tg.webUrl, "_blank");
-                  close();
-                }}
-              >
-                Open t.me
-              </MenuItem>
-            </>
           )}
         </>
       )}
@@ -356,10 +314,10 @@ export function MessageMenu({ lead, size = "sm" }: { lead: Lead; size?: "sm" | "
   );
 }
 
-/** Stable CRM deep link (hash router) */
-export function crmLeadUrl(leadId: string): string {
-  const path = (location.pathname || "/").replace(/\/$/, "") || "";
-  return `${location.origin}${path}/#/leads/${leadId}`;
+/** Stable deep link to a lead inside the app. */
+export function crmLeadUrl(leadId: number): string {
+  if (typeof window === "undefined") return `/leads/${leadId}`;
+  return `${window.location.origin}/leads/${leadId}`;
 }
 
 export function CopyMenu({ lead, size = "sm" }: { lead: Lead; size?: "sm" | "md" }) {
@@ -388,7 +346,7 @@ export function CopyMenu({ lead, size = "sm" }: { lead: Lead; size?: "sm" | "md"
               <MenuItem
                 icon={<Phone className="h-4 w-4" />}
                 onClick={() => {
-                  void copy(lead.phone, "Phone copied");
+                  void copy(lead.phone as string, "Phone copied");
                   close();
                 }}
               >
@@ -398,20 +356,11 @@ export function CopyMenu({ lead, size = "sm" }: { lead: Lead; size?: "sm" | "md"
             <MenuItem
               icon={<Copy className="h-4 w-4" />}
               onClick={() => {
-                void copy(copyAllInfo(lead), "All info copied");
+                void copy(buildLeadInfoText(lead), "All info copied");
                 close();
               }}
             >
               Copy all info
-            </MenuItem>
-            <MenuItem
-              icon={<Copy className="h-4 w-4" />}
-              onClick={() => {
-                void copy(copyContactInfo(lead), "Contact info copied");
-                close();
-              }}
-            >
-              Copy contact
             </MenuItem>
             <MenuItem
               icon={<Sparkles className="h-4 w-4" />}
@@ -441,29 +390,25 @@ export function CopyMenu({ lead, size = "sm" }: { lead: Lead; size?: "sm" | "md"
 
 export function SocialIcons({ lead, className }: { lead: Lead; className?: string }) {
   const items = [
-    { url: safeUrl(lead.facebook_url), icon: Facebook, label: "Facebook" },
-    { url: safeUrl(lead.instagram_url), icon: Instagram, label: "Instagram" },
-    { url: safeUrl(lead.tiktok_url), icon: Music2, label: "TikTok" },
-    { url: safeUrl(lead.linkedin_url), icon: Linkedin, label: "LinkedIn" },
-    {
-      url: resolveTelegram(lead).kind === "username" ? (resolveTelegram(lead) as any).url : safeUrl(lead.telegram_url),
-      icon: Send,
-      label: "Telegram",
-    },
+    { url: socialUrl("facebook", lead.facebook), icon: Facebook, label: "Facebook" },
+    { url: socialUrl("instagram", lead.instagram), icon: Instagram, label: "Instagram" },
+    { url: socialUrl("tiktok", lead.tiktok), icon: Music2, label: "TikTok" },
+    { url: socialUrl("linkedin", lead.linkedin), icon: Linkedin, label: "LinkedIn" },
+    { url: socialUrl("telegram", lead.telegram) ?? telegramHref(lead.phone), icon: Send, label: "Telegram" },
   ].filter((i) => i.url);
 
   if (!items.length) return null;
   return (
-    <div className={`flex items-center gap-1 ${className || ""}`}>
+    <div className={`flex items-center gap-1 ${className ?? ""}`}>
       {items.map((i) => (
         <a
           key={i.label}
-          href={i.url!}
+          href={i.url as string}
           target="_blank"
-          rel="noreferrer"
+          rel="noreferrer noopener"
           title={i.label}
           onClick={(e) => e.stopPropagation()}
-          className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-slate-200"
+          className="rounded-md p-1.5 text-subtle transition-colors hover:bg-surface-muted hover:text-ink"
         >
           <i.icon className="h-3.5 w-3.5" />
         </a>
@@ -475,66 +420,44 @@ export function SocialIcons({ lead, className }: { lead: Lead; className?: strin
 export interface QuickActionsProps {
   lead: Lead;
   size?: "sm" | "md";
-  /** Desktop default: grouped Message / Search / Copy. Call only on phone or phoneMode. */
-  show?: (
-    | "call"
-    | "message"
-    | "wa"
-    | "tg"
-    | "maps"
-    | "web"
-    | "research"
-    | "copy"
-    | "pin"
-    | "archive"
-    | "share"
-    | "more"
-  )[];
-  /** Force large call button (Call Mode / mobile) */
+  /** Desktop default: grouped Message / Research / Copy. */
+  show?: Array<"call" | "message" | "wa" | "tg" | "maps" | "web" | "research" | "copy" | "archive" | "share" | "more">;
+  /** Force the large call button (Call Mode / mobile). */
   phoneMode?: boolean;
+  /** Lets the parent list update its cached row after an inline edit. */
+  onChange?: (lead: Lead, patch: Partial<Lead>) => void;
   onEdit?: () => void;
   onDelete?: () => void;
   onOpen?: () => void;
   className?: string;
 }
 
-function useIsPhoneViewport() {
-  const [phone, setPhone] = useState(() =>
-    typeof window !== "undefined" ? window.matchMedia("(max-width: 768px)").matches : false,
-  );
-  React.useEffect(() => {
-    const mq = window.matchMedia("(max-width: 768px)");
-    const fn = () => setPhone(mq.matches);
-    mq.addEventListener("change", fn);
-    return () => mq.removeEventListener("change", fn);
-  }, []);
-  return phone;
-}
-
 export function QuickActions({
   lead,
   size = "sm",
-  show = ["message", "research", "copy", "pin"],
+  show = ["message", "research", "copy"],
   phoneMode = false,
+  onChange,
   onEdit,
   onDelete,
   onOpen,
   className,
 }: QuickActionsProps) {
   const copy = useCopy();
+  const { toast } = useToast();
   const [copied, setCopied] = useState(false);
-  const isPhone = useIsPhoneViewport();
-  // Never auto-inject Call into table/card rows — only Call Mode or explicit show:["call"]
   const showCall = phoneMode || show.includes("call");
-  const bigCall = phoneMode || (showCall && isPhone);
-  const has = (k: string) => show.includes(k as any);
-  const website = safeUrl(lead.website);
+  const bigCall = phoneMode;
+  const has = (k: string) => show.includes(k as never);
+  const website = ensureUrl(lead.website);
+  const maps = mapsHref(lead);
+  const tel = telHref(lead.phone);
 
   const share = async () => {
-    const text = copyAllInfo(lead);
+    const text = buildLeadInfoText(lead);
     try {
       if (navigator.share) {
-        await navigator.share({ title: lead.business_name, text });
+        await navigator.share({ title: lead.businessName, text });
         return;
       }
     } catch {
@@ -543,26 +466,26 @@ export function QuickActions({
     void copy(text, "Copied for sharing");
   };
 
-  const togglePin = async () => {
-    await leadsRepo.update(lead.id, { is_pinned: !lead.is_pinned });
-    toast.success(lead.is_pinned ? "Unpinned" : "Pinned");
-  };
-
   const toggleArchive = async () => {
-    await leadsRepo.update(lead.id, { is_archived: !lead.is_archived });
-    toast.success(lead.is_archived ? "Restored from archive" : "Archived");
+    const patch = { archived: !lead.archived };
+    try {
+      const result = await apiPatch<{ lead: Lead }>(`/api/leads/${lead.id}`, patch);
+      onChange?.(lead, result?.lead ?? patch);
+      toast(lead.archived ? "Restored from archive" : "Archived", "success");
+    } catch (error) {
+      toast((error as Error).message || "Could not update", "error");
+    }
   };
 
   return (
-    <div className={`flex flex-wrap items-center gap-1.5 ${className || ""}`} onClick={(e) => e.stopPropagation()}>
-      {showCall && lead.phone && (
-        <a href={telHref(lead.phone)} onClick={(e) => e.stopPropagation()} className={bigCall ? "flex-1 min-w-[120px]" : ""}>
+    <div
+      className={`flex flex-wrap items-center gap-1.5 ${className ?? ""}`}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {showCall && tel && (
+        <a href={tel} onClick={(e) => e.stopPropagation()} className={bigCall ? "flex-1" : ""}>
           {bigCall ? (
-            <Button
-              variant="primary"
-              className="h-12 w-full gap-2 rounded-xl text-[15px] font-semibold"
-              onClick={(e) => e.stopPropagation()}
-            >
+            <Button variant="primary" className="h-12 w-full gap-2 rounded-xl text-[15px] font-semibold">
               <Phone className="h-5 w-5" /> Call
             </Button>
           ) : (
@@ -571,38 +494,24 @@ export function QuickActions({
         </a>
       )}
       {(has("message") || has("wa") || has("tg")) && <MessageMenu lead={lead} size={size} />}
-      {!has("message") && has("wa") && lead.phone && (
-        <a href={waHref(lead.phone)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-          <ActionBtn size={size} icon={<MessageCircle className="h-3.5 w-3.5" />} label="WhatsApp" />
-        </a>
-      )}
       {!has("message") && has("tg") && <TelegramButton lead={lead} size={size} />}
-      {has("maps") && lead.google_maps_url && (
-        <a href={safeUrl(lead.google_maps_url) || ""} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+      {has("maps") && maps && (
+        <a href={maps} target="_blank" rel="noreferrer noopener" onClick={(e) => e.stopPropagation()}>
           <ActionBtn size={size} icon={<MapPin className="h-3.5 w-3.5" />} label="Maps" />
         </a>
       )}
       {has("web") && website && (
-        <a href={website} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+        <a href={website} target="_blank" rel="noreferrer noopener" onClick={(e) => e.stopPropagation()}>
           <ActionBtn size={size} icon={<Globe className="h-3.5 w-3.5" />} label="Website" />
         </a>
       )}
       {has("research") && <ResearchMenu lead={lead} size={size} />}
       {has("copy") && <CopyMenu lead={lead} size={size} />}
-      {has("pin") && (
-        <ActionBtn
-          size={size}
-          icon={lead.is_pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
-          label={lead.is_pinned ? "Unpin" : "Pin"}
-          active={lead.is_pinned}
-          onClick={togglePin}
-        />
-      )}
       {has("archive") && (
         <ActionBtn
           size={size}
-          icon={lead.is_archived ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
-          label={lead.is_archived ? "Restore" : "Archive"}
+          icon={lead.archived ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
+          label={lead.archived ? "Restore" : "Archive"}
           onClick={toggleArchive}
         />
       )}
@@ -634,7 +543,7 @@ export function QuickActions({
                   close();
                 }}
               >
-                Copy CRM Link
+                Copy CRM link
               </MenuItem>
               {onOpen && (
                 <MenuItem

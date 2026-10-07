@@ -1,69 +1,134 @@
-import { memo, useCallback, useRef } from "react";
+"use client";
+
+import { memo, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import { Checkbox } from "@/components/ui/ui";
-import { PinButton, ScoreChip, StatusSelect, TierBadge, ValueEstimate, WebsiteCell } from "./controls";
 import { QuickActions } from "@/components/common/QuickActions";
-import { dueLabel, telHref, timeAgo } from "@/lib/utils";
+import { ScoreChip, StatusSelect, TierBadge, ValueEstimate, WebsiteCell } from "./controls";
+import { cn, dueLabel, telHref, timeAgo } from "@/lib/utils";
 import type { Lead } from "@/lib/types";
 
-const ROW_H = 56;
+const ROW_H = 58;
 
-/** 8 columns — enough info without breaking the row */
+/** 8 columns — enough info without breaking the row. */
 const COLS =
-  "grid-cols-[36px_minmax(140px,1.6fr)_88px_72px_100px_72px_72px_minmax(108px,auto)]";
+  "grid-cols-[36px_minmax(160px,1.6fr)_112px_96px_118px_64px_90px_minmax(104px,auto)]";
+
+type SortKey = string;
+
+function sortFor(column: "business" | "status" | "score" | "rating" | "created" | "updated", current: SortKey) {
+  switch (column) {
+    case "business":
+      return current === "name_asc" ? "name_desc" : "name_asc";
+    case "score":
+      return current === "score_desc" ? "score_asc" : "score_desc";
+    case "rating":
+      return "rating_desc";
+    case "status":
+      return "tier_asc";
+    case "created":
+      return "created_desc";
+    case "updated":
+      return "updated_desc";
+  }
+}
+
+function SortHeader({
+  label,
+  column,
+  sort,
+  onSortChange,
+  className,
+}: {
+  label: string;
+  column: "business" | "status" | "score" | "rating" | "created" | "updated";
+  sort: SortKey;
+  onSortChange: (value: string) => void;
+  className?: string;
+}) {
+  const activeKey = sortFor(column, sort);
+  const active = sort === activeKey || sort === sortFor(column, activeKey);
+  const Icon = !active ? ChevronsUpDown : sort === sortFor(column, sortFor(column, sort)) ? ArrowUp : ArrowDown;
+  return (
+    <button
+      type="button"
+      onClick={() => onSortChange(sortFor(column, sort))}
+      className={cn(
+        "flex items-center gap-1 text-left text-[10px] font-semibold uppercase tracking-wider transition hover:text-ink",
+        active ? "text-ink" : "text-subtle",
+        className,
+      )}
+      title={`Sort by ${label.toLowerCase()}`}
+    >
+      {label}
+      <Icon className={cn("h-3 w-3 shrink-0", active ? "opacity-90" : "opacity-40")} />
+    </button>
+  );
+}
 
 export function LeadTable({
   leads,
   selected,
+  sort,
+  onSortChange,
   onToggle,
   onToggleAll,
+  onQuickEdit,
   onOpen,
 }: {
   leads: Lead[];
-  selected: Set<string>;
-  onToggle: (id: string) => void;
+  selected: Set<number>;
+  sort: SortKey;
+  onSortChange: (value: string) => void;
+  onToggle: (id: number) => void;
   onToggleAll: () => void;
-  onOpen: (id: string) => void;
+  onQuickEdit?: (lead: Lead, patch: Partial<Lead>) => Promise<void> | void;
+  onOpen?: (id: number) => void;
 }) {
-  const parentRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  const scrollRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
     count: leads.length,
-    getScrollElement: () => parentRef.current,
+    getScrollElement: () => scrollRef.current,
     estimateSize: () => ROW_H,
     overscan: 12,
     getItemKey: (index) => leads[index]?.id ?? index,
   });
-
-  const allSelected = leads.length > 0 && selected.size === leads.length;
+  const allSelected = leads.length > 0 && leads.every((l) => selected.has(l.id));
   const someSelected = selected.size > 0 && !allSelected;
-  const handleToggleAll = useCallback(() => onToggleAll(), [onToggleAll]);
+
+  const open = (id: number) => (onOpen ? onOpen(id) : router.push(`/leads/${id}`));
+
+  const patch = (lead: Lead, value: Partial<Lead>) => {
+    void onQuickEdit?.(lead, value);
+  };
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white dark:border-white/[0.08] dark:bg-white/[0.02]">
-      <div ref={parentRef} className="max-h-[calc(100dvh-280px)] min-h-[220px] overflow-auto">
-        <div className="min-w-[720px]">
+    <div className="overflow-hidden rounded-2xl border border-line bg-surface">
+      <div ref={scrollRef} className="max-h-[max(300px,calc(100dvh-300px))] min-h-[220px] overflow-auto overscroll-contain">
+        <div className="min-w-[860px]">
           <div
-            className={`sticky top-0 z-10 grid ${COLS} items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:border-white/5 dark:bg-[#12141a] dark:text-slate-400`}
+            className={cn(
+              "sticky top-0 z-10 grid items-center gap-2 border-b border-line bg-surface-muted px-3 py-2.5",
+              COLS,
+            )}
           >
-            <Checkbox
-              checked={allSelected}
-              className={someSelected ? "opacity-60" : ""}
-              onChange={handleToggleAll}
-              aria-label="Select all"
-            />
-            <span>Business</span>
-            <span>Status</span>
-            <span>Score</span>
-            <span>Phone</span>
-            <span>Web</span>
-            <span>Next</span>
-            <span className="text-right">Actions</span>
+            <Checkbox checked={allSelected} className={someSelected ? "opacity-60" : ""} onChange={onToggleAll} />
+            <SortHeader label="Business" column="business" sort={sort} onSortChange={onSortChange} />
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-subtle">Status</span>
+            <SortHeader label="Score" column="score" sort={sort} onSortChange={onSortChange} />
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-subtle">Phone</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-subtle">Web</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-subtle">Last</span>
+            <span className="text-right text-[10px] font-semibold uppercase tracking-wider text-subtle">Actions</span>
           </div>
 
           {leads.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-14 text-center">
-              <div className="text-[15px] font-medium text-slate-900 dark:text-white">No leads match</div>
-              <p className="mt-1 text-[13px] text-slate-500">Adjust filters or import a new batch.</p>
+              <div className="text-[15px] font-medium text-ink">No leads match</div>
+              <p className="mt-1 text-[13px] text-muted">Adjust filters or import a new batch.</p>
             </div>
           ) : (
             <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
@@ -76,7 +141,8 @@ export function LeadTable({
                     lead={lead}
                     selected={selected.has(lead.id)}
                     onToggle={onToggle}
-                    onOpen={onOpen}
+                    onOpen={open}
+                    onPatch={patch}
                     style={{
                       position: "absolute",
                       top: 0,
@@ -101,60 +167,54 @@ const LeadRow = memo(function LeadRow({
   selected,
   onToggle,
   onOpen,
+  onPatch,
   style,
 }: {
   lead: Lead;
   selected: boolean;
-  onToggle: (id: string) => void;
-  onOpen: (id: string) => void;
+  onToggle: (id: number) => void;
+  onOpen: (id: number) => void;
+  onPatch: (lead: Lead, patch: Partial<Lead>) => void;
   style: React.CSSProperties;
 }) {
   return (
     <div
       style={style}
       onClick={() => onOpen(lead.id)}
-      className={`grid ${COLS} cursor-pointer items-center gap-2 border-b border-slate-100 px-3 hover:bg-slate-50/90 dark:border-white/[0.04] dark:hover:bg-white/[0.03] ${
-        selected ? "bg-slate-50 dark:bg-white/[0.05]" : ""
-      }`}
+      className={cn(
+        "grid cursor-pointer items-center gap-2 border-b border-line/70 px-3 transition hover:bg-surface-muted/70",
+        COLS,
+        selected && "bg-surface-muted",
+      )}
     >
       <div onClick={(e) => e.stopPropagation()}>
         <Checkbox checked={selected} onChange={() => onToggle(lead.id)} />
       </div>
 
-      <div className="flex min-w-0 items-center gap-1.5">
-        <div onClick={(e) => e.stopPropagation()}>
-          <PinButton lead={lead} />
-        </div>
-        <div className="min-w-0">
-          <div className="truncate text-[13px] font-semibold text-slate-900 dark:text-white">
-            {lead.business_name || "(unnamed)"}
-          </div>
-          <div className="truncate text-[10.5px] text-slate-500 dark:text-slate-400">
-            {lead.category || "—"}
-            {lead.city ? ` · ${lead.city}` : ""}
-          </div>
+      <div className="min-w-0">
+        <div className="truncate text-[13px] font-semibold text-ink">{lead.businessName || "(unnamed)"}</div>
+        <div className="truncate text-[10.5px] text-muted">
+          {lead.category || "—"}
+          {lead.city ? ` · ${lead.city}` : ""}
         </div>
       </div>
 
       <div onClick={(e) => e.stopPropagation()} className="min-w-0">
-        <StatusSelect lead={lead} compact />
+        <StatusSelect lead={lead} compact onSaved={() => undefined} />
       </div>
 
-      <div className="flex min-w-0 flex-col gap-0.5" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-1">
-          <ScoreChip lead={lead} />
-          <TierBadge lead={lead} size="xs" />
-        </div>
-        <ValueEstimate lead={lead} />
+      <div className="flex min-w-0 items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+        <ScoreChip lead={lead} />
+        <TierBadge lead={lead} size="xs" />
       </div>
 
       <div className="truncate text-[12px]" onClick={(e) => e.stopPropagation()}>
         {lead.phone ? (
-          <a href={telHref(lead.phone)} className="text-slate-700 hover:underline dark:text-slate-300">
+          <a href={telHref(lead.phone) ?? undefined} className="text-muted hover:underline">
             {lead.phone}
           </a>
         ) : (
-          <span className="text-slate-300 dark:text-slate-600">—</span>
+          <span className="text-subtle">—</span>
         )}
       </div>
 
@@ -163,25 +223,17 @@ const LeadRow = memo(function LeadRow({
       </div>
 
       <div className="truncate text-[11px]">
-        {lead.next_followup_at ? (
-          <span
-            className={
-              new Date(lead.next_followup_at) < new Date() ? "text-red-500" : "text-slate-500 dark:text-slate-400"
-            }
-          >
-            {dueLabel(lead.next_followup_at)}
-          </span>
-        ) : lead.last_contacted_at ? (
-          <span className="text-slate-400" title="Last contact">
-            {timeAgo(lead.last_contacted_at)}
+        {lead.lastContactedAt ? (
+          <span className="text-muted" title="Last contact">
+            {timeAgo(lead.lastContactedAt)}
           </span>
         ) : (
-          <span className="text-slate-300 dark:text-slate-600">—</span>
+          <span className="text-subtle">—</span>
         )}
       </div>
 
       <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
-        <QuickActions lead={lead} size="sm" show={["message", "research", "copy"]} />
+        <QuickActions lead={lead} size="sm" show={["message", "research", "copy"]} onChange={onPatch} />
       </div>
     </div>
   );

@@ -21,13 +21,14 @@ const VARIANTS: Record<ButtonVariant, string> = {
     "backdrop-blur-xl bg-white/70 border border-white/40 text-slate-700 hover:bg-white/85 dark:bg-white/10 dark:border-white/10 dark:text-slate-100 dark:hover:bg-white/15",
 };
 
+/** Comfortable tap targets: small sizes grow on phones, shrink back on ≥sm screens. */
 const SIZES: Record<ButtonSize, string> = {
-  xs: "h-7 px-2 text-xs rounded-lg gap-1",
-  sm: "h-8 px-3 text-[13px] rounded-lg gap-1.5",
-  md: "h-9 px-3.5 text-sm rounded-xl gap-2",
+  xs: "h-9 px-2.5 text-[12.5px] rounded-lg gap-1 sm:h-7 sm:text-xs",
+  sm: "h-10 px-3 text-[13px] rounded-lg gap-1.5 sm:h-8",
+  md: "h-10 px-3.5 text-sm rounded-xl gap-2 sm:h-9",
   lg: "h-11 px-5 text-[15px] rounded-xl gap-2",
-  icon: "h-9 w-9 rounded-xl",
-  "icon-sm": "h-8 w-8 rounded-lg",
+  icon: "h-10 w-10 rounded-xl sm:h-9 sm:w-9",
+  "icon-sm": "h-10 w-10 rounded-lg sm:h-8 sm:w-8",
 };
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -155,7 +156,7 @@ export function Checkbox({
         onChange(!checked);
       }}
       className={cn(
-        "h-4 w-4 shrink-0 rounded-[5px] border transition-colors flex items-center justify-center",
+        "relative h-4 w-4 shrink-0 rounded-[5px] border transition-colors flex items-center justify-center before:absolute before:-inset-2 before:content-[\"\"] sm:before:hidden",
         checked
           ? "border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900"
           : "border-slate-300 bg-white dark:border-white/20 dark:bg-white/5",
@@ -293,18 +294,17 @@ export function Dialog({
   const widths = { sm: "max-w-sm", md: "max-w-lg", lg: "max-w-2xl", xl: "max-w-4xl" };
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center">
-      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] animate-in fade-in" onClick={onClose} />
+    <div className="fixed inset-0 z-[120] flex items-end justify-center sm:items-center sm:p-4">
+      <div className="absolute inset-0 bg-slate-900/45 backdrop-blur-[2px] animate-in fade-in" onClick={onClose} />
       <div
         className={cn(
-          "relative w-full overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl sm:rounded-2xl",
-          "dark:border-white/10 dark:bg-[#111318]",
+          "relative w-full overflow-hidden rounded-t-2xl border border-line bg-surface shadow-2xl sm:rounded-2xl",
           widths[size],
-          "max-h-[92vh] flex flex-col",
+          "flex max-h-[92dvh] flex-col",
         )}
       >
         {(title || description) && (
-          <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4 dark:border-white/5">
+          <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-3.5 sm:px-5 sm:py-4">
             <div className="min-w-0">
               {title && <h2 className="text-[15px] font-semibold text-slate-900 dark:text-white">{title}</h2>}
               {description && <p className="mt-0.5 text-[13px] text-slate-500 dark:text-slate-400">{description}</p>}
@@ -314,9 +314,9 @@ export function Dialog({
             </Button>
           </div>
         )}
-        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">{children}</div>
         {footer && (
-          <div className="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/60 px-5 py-3 dark:border-white/5 dark:bg-white/[0.02]">
+          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line bg-surface-muted/60 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5 sm:pb-3">
             {footer}
           </div>
         )}
@@ -463,8 +463,7 @@ export function Dropdown({
               visibility: pos ? "visible" : "hidden",
             }}
             className={cn(
-              "min-w-[190px] overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-xl",
-              "dark:border-white/10 dark:bg-[#181b21]",
+              "min-w-[190px] max-h-[min(70dvh,26rem)] overflow-y-auto overscroll-contain rounded-xl border border-line bg-surface p-1 shadow-xl",
               panelClassName,
             )}
           >
@@ -511,9 +510,16 @@ export function MenuItem({
   );
 }
 
-export function MenuLabel({ children }: { children: React.ReactNode }) {
+export function MenuLabel({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">{children}</div>
+    <div
+      className={cn(
+        "px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-subtle",
+        className,
+      )}
+    >
+      {children}
+    </div>
   );
 }
 

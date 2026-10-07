@@ -105,7 +105,7 @@ export default function ProjectsPage() {
               key={f}
               onClick={() => setFilter(f)}
               className={cn(
-                "rounded-lg border px-2.5 py-1.5 text-[12.5px] capitalize transition-colors",
+                "rounded-lg border px-2.5 py-2 text-[12.5px] capitalize transition-colors sm:py-1.5",
                 filter === f
                   ? "border-accent/50 bg-accent/10 text-accent"
                   : "border-line text-muted hover:text-ink",
