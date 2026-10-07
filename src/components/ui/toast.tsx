@@ -27,12 +27,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="pointer-events-none fixed bottom-5 left-1/2 z-[120] flex -translate-x-1/2 flex-col items-center gap-2">
+      <div className="pointer-events-none fixed inset-x-0 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-[140] flex flex-col items-center gap-2 px-3 md:bottom-5">
         {items.map((t) => (
           <div
             key={t.id}
             className={cn(
-              "animate-pop-in glass pointer-events-auto flex items-center gap-2 rounded-full border border-line px-4 py-2.5 text-sm font-medium shadow-lg",
+              "animate-pop-in glass pointer-events-auto flex max-w-full items-center gap-2 rounded-2xl border border-line px-4 py-2.5 text-center text-[13.5px] font-medium shadow-lg sm:rounded-full sm:text-sm",
               t.tone === "success" && "text-emerald-600 dark:text-emerald-300",
               t.tone === "error" && "text-rose-600 dark:text-rose-300",
             )}

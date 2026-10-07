@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/layout/AppShell";
-import { ToastProvider } from "@/components/ui/toast";
+import { Providers } from "@/components/layout/Providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -23,6 +23,7 @@ export const viewport: Viewport = {
   ],
   width: "device-width",
   initialScale: 1,
+  maximumScale: 5,
   viewportFit: "cover",
 };
 
@@ -30,7 +31,9 @@ const themeScript = `
 (function() {
   try {
     var stored = localStorage.getItem('meda-theme');
-    var dark = stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var dark = !stored || stored === 'system'
+      ? window.matchMedia('(prefers-color-scheme: dark)').matches
+      : stored === 'dark';
     if (dark) document.documentElement.classList.add('dark');
   } catch (e) {}
 })();
@@ -43,9 +46,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="antialiased">
-        <ToastProvider>
+        <Providers>
           <AppShell>{children}</AppShell>
-        </ToastProvider>
+        </Providers>
       </body>
     </html>
   );

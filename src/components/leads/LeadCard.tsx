@@ -1,97 +1,161 @@
-import { Star, Clock3 } from "lucide-react";
-import { toast } from "sonner";
-import { PinButton, ScoreChip, StatusSelect, TierBadge, ValueEstimate, WebsiteCell } from "./controls";
-import { QuickActions } from "@/components/common/QuickActions";
-import { cn, dueLabel, timeAgo } from "@/lib/utils";
-import type { Lead } from "@/lib/types";
-import { useApp } from "@/lib/app";
-import { leadsRepo } from "@/lib/repos";
+"use client";
 
-export function LeadCard({ lead, onOpen }: { lead: Lead; onOpen?: () => void }) {
-  const { openLead } = useApp();
-  const today = new Date();
-  const due = lead.next_followup_at ? new Date(lead.next_followup_at) : null;
-  const dueToday = due && due.toDateString() === today.toDateString();
-  const overdue = due && due.getTime() < Date.now() && !dueToday;
+import { useRouter } from "next/navigation";
+import { CalendarPlus, Clock3, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
+import { Checkbox } from "@/components/ui/ui";
+import { ScoreChip, StatusSelect, TierBadge, ValueEstimate, WebsiteCell } from "./controls";
+import { cn, mapsHref, telHref, timeAgo, whatsappHref } from "@/lib/utils";
+import type { Lead } from "@/lib/types";
+
+/**
+ * Touch-first lead card used on phones and small tablets.
+ * Every action is a real ≥40px tap target — no hover-only affordances.
+ */
+export function LeadCard({
+  lead,
+  selected,
+  onToggleSelect,
+  onFollowUp,
+  onOpen,
+  onQuickEdit,
+  onLogActivity,
+}: {
+  lead: Lead;
+  selected?: boolean;
+  onToggleSelect?: (id: number) => void;
+  onFollowUp?: (lead: Lead) => void;
+  onOpen?: () => void;
+  onQuickEdit?: (lead: Lead, patch: Partial<Lead>) => Promise<void> | void;
+  /** Optional audit trail — logs the touchpoint when you tap Call / WhatsApp. */
+  onLogActivity?: (leadId: number, type: string, summary: string) => void;
+}) {
+  const router = useRouter();
+  const open = () => (onOpen ? onOpen() : router.push(`/leads/${lead.id}`));
+  const tel = telHref(lead.phone);
+  const wa = whatsappHref(lead.phone);
+  const maps = mapsHref(lead);
+
+  const patch = (value: Partial<Lead>) => {
+    void onQuickEdit?.(lead, value);
+  };
 
   return (
     <div
-      onClick={() => (onOpen ? onOpen() : openLead(lead.id))}
-      className="group cursor-pointer rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-slate-300 hover:shadow-md active:scale-[0.995] dark:border-white/[0.08] dark:bg-white/[0.035] dark:hover:border-white/20"
+      className={cn(
+        "rounded-2xl border bg-surface shadow-sm transition active:scale-[0.995]",
+        selected ? "border-accent/60 ring-1 ring-accent/30" : "border-line",
+      )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            {lead.is_pinned && <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" />}
-            <h3 className="truncate text-[14.5px] font-semibold leading-tight text-slate-900 dark:text-white">
-              {lead.business_name || "(unnamed)"}
-            </h3>
+      <div className="flex items-start gap-2.5 p-3.5 pb-2">
+        {onToggleSelect && (
+          <div className="pt-1" onClick={(e) => e.stopPropagation()}>
+            <Checkbox checked={Boolean(selected)} onChange={() => onToggleSelect(lead.id)} />
           </div>
-          <p className="mt-0.5 truncate text-[12px] text-slate-500 dark:text-slate-400">
-            {lead.category || "Uncategorized"}
-            {(lead.city || lead.address) && ` · ${lead.city || lead.address}`}
+        )}
+        <button type="button" onClick={open} className="min-w-0 flex-1 text-left">
+          <h3 className="truncate text-[15px] font-semibold leading-tight text-ink">
+            {lead.businessName || "(unnamed)"}
+          </h3>
+          <p className="mt-0.5 truncate text-[12px] text-muted">
+            {lead.category || "Uncategorised"}
+            {lead.city ? ` · ${lead.city}` : lead.address ? ` · ${lead.address}` : ""}
           </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
-          <PinButton lead={lead} />
-        </div>
+        </button>
+        <span className="shrink-0 text-right text-[11px] text-subtle">
+          {lead.lastContactedAt ? timeAgo(lead.lastContactedAt) : ""}
+        </span>
       </div>
 
-      <div className="mt-2.5 flex flex-wrap items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-        <TierBadge lead={lead} />
-        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-600 dark:bg-white/10 dark:text-slate-300">
-          Score <ScoreChip lead={lead} className="p-0 text-[11px] hover:bg-transparent dark:hover:bg-transparent" />
-        </span>
+      <div className="flex flex-wrap items-center gap-1.5 px-3.5" onClick={(e) => e.stopPropagation()}>
         <StatusSelect lead={lead} />
+        <TierBadge lead={lead} />
+        <span className="inline-flex items-center gap-1 rounded-full bg-surface-muted px-2 py-0.5 text-[11px] font-semibold tabular-nums text-muted">
+          Score <ScoreChip lead={lead} className="p-0" />
+        </span>
         <ValueEstimate lead={lead} />
         <WebsiteCell lead={lead} />
       </div>
 
-      {(lead.next_followup_at || lead.last_contacted_at) && (
-        <div className="mt-2 flex items-center gap-1.5 text-[11.5px] text-slate-500 dark:text-slate-400">
-          <Clock3 className="h-3 w-3 shrink-0" />
-          {lead.next_followup_at ? (
-            <span className={cn(overdue ? "text-red-500" : dueToday ? "text-amber-600 dark:text-amber-400" : "")}>
-              Follow-up {dueLabel(lead.next_followup_at)}
-            </span>
-          ) : (
-            <span>Last contact {timeAgo(lead.last_contacted_at!)}</span>
-          )}
-        </div>
-      )}
-
-      {lead.tags && lead.tags.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1">
+      {lead.tags?.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1 px-3.5">
           {lead.tags.slice(0, 4).map((t) => (
             <span
               key={t}
-              className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10.5px] font-medium text-slate-500 dark:bg-white/10 dark:text-slate-400"
+              className="rounded-md bg-surface-muted px-1.5 py-0.5 text-[10.5px] font-medium text-muted"
             >
               {t}
             </span>
           ))}
-          {lead.tags.length > 4 && (
-            <span className="text-[10.5px] text-slate-400">+{lead.tags.length - 4}</span>
-          )}
+          {lead.tags.length > 4 && <span className="text-[10.5px] text-subtle">+{lead.tags.length - 4}</span>}
         </div>
       )}
 
-      <div
-        className="mt-3 border-t border-slate-100 pt-2.5 dark:border-white/[0.06]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <QuickActions lead={lead} size="sm" show={["message", "research", "copy"]} className="justify-start" />
+      {lead.phone && (
+        <div className="mt-2 flex items-center gap-1.5 px-3.5 text-[11.5px] text-muted">
+          <Clock3 className="h-3 w-3 shrink-0" />
+          {lead.lastContactedAt ? `Last contact ${timeAgo(lead.lastContactedAt)}` : "Never contacted"}
+        </div>
+      )}
+
+      {/* Touch action row — big, glove-friendly targets */}
+      <div className="mt-2.5 flex items-stretch gap-1.5 border-t border-line px-2.5 py-2.5">
+        {tel && (
+          <a
+            href={tel}
+            onClick={() => onLogActivity?.(lead.id, "call", `Called ${lead.businessName}`)}
+            className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-accent/10 text-[13.5px] font-semibold text-accent active:bg-accent/20"
+          >
+            <Phone className="h-4 w-4" /> Call
+          </a>
+        )}
+        {wa && (
+          <a
+            href={wa}
+            target="_blank"
+            rel="noreferrer noopener"
+            onClick={() => onLogActivity?.(lead.id, "whatsapp", `WhatsApp opened for ${lead.businessName}`)}
+            className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-500/10 text-[13.5px] font-semibold text-emerald-600 active:bg-emerald-500/20 dark:text-emerald-400"
+          >
+            <MessageCircle className="h-4 w-4" /> WhatsApp
+          </a>
+        )}
+        {lead.email && (
+          <a
+            href={`mailto:${lead.email}`}
+            className="flex min-h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface-muted text-muted"
+            title={`Email ${lead.email}`}
+          >
+            <Mail className="h-4 w-4" />
+          </a>
+        )}
+        {maps && (
+          <a
+            href={maps}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="flex min-h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface-muted text-muted"
+            title="Open in Maps"
+          >
+            <MapPin className="h-4 w-4" />
+          </a>
+        )}
+        {onFollowUp && (
+          <button
+            type="button"
+            onClick={() => onFollowUp(lead)}
+            className="flex min-h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface-muted text-muted"
+            title="Schedule follow-up"
+          >
+            <CalendarPlus className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
-      {lead.is_archived && (
+      {lead.archived && onQuickEdit && (
         <button
           type="button"
-          onClick={async (e) => {
-            e.stopPropagation();
-            await leadsRepo.update(lead.id, { is_archived: false });
-            toast.success("Restored");
-          }}
-          className="mt-2 w-full rounded-lg bg-slate-100 py-1.5 text-[11.5px] font-medium text-slate-600 dark:bg-white/10 dark:text-slate-300"
+          onClick={() => patch({ archived: false })}
+          className="w-full rounded-b-2xl bg-surface-muted py-2 text-[12px] font-medium text-muted"
         >
           Archived · tap to restore
         </button>

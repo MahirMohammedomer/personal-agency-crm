@@ -40,7 +40,7 @@ export function ContactsPanel({
             const tel = telHref(contact.phone);
             const wa = whatsappHref(contact.phone);
             const btn =
-              "inline-flex h-7 w-7 items-center justify-center rounded-lg text-[12.5px] transition-colors hover:bg-surface";
+              "inline-flex h-10 w-10 items-center justify-center rounded-lg text-[12.5px] transition-colors hover:bg-surface sm:h-7 sm:w-7";
             return (
               <div
                 key={contact.id}

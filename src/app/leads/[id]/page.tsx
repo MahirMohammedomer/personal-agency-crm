@@ -427,7 +427,7 @@ export default function LeadProfilePage() {
                   {tag}
                   <button
                     onClick={() => patchLead({ tags: lead.tags.filter((t) => t !== tag) })}
-                    className="opacity-60 hover:opacity-100"
+                    className="-m-1 p-1 opacity-60 hover:opacity-100"
                   >
                     ✕
                   </button>

@@ -239,7 +239,7 @@ export default function ProjectDetailPage() {
                   key={stage}
                   onClick={() => patchProject({ stage }, true)}
                   className={cn(
-                    "rounded-lg border px-2.5 py-1.5 text-[12.5px] transition-colors",
+                    "rounded-lg border px-2.5 py-2 text-[12.5px] transition-colors sm:py-1.5",
                     project.stage === stage
                       ? "border-accent/50 bg-accent/10 font-medium text-accent"
                       : "border-line text-muted hover:border-line-strong hover:text-ink",
@@ -326,7 +326,7 @@ export default function ProjectDetailPage() {
             key={key}
             onClick={() => setTab(key)}
             className={cn(
-              "rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors",
+              "rounded-lg px-3 py-2 text-[13px] font-medium transition-colors sm:py-1.5",
               tab === key ? "bg-surface-muted text-ink" : "text-subtle hover:text-ink",
             )}
           >
@@ -749,21 +749,21 @@ function FilesPanel({
                     href={`/api/project-files/${file.id}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[12.5px] hover:bg-surface-muted"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[12.5px] hover:bg-surface-muted sm:h-7 sm:w-7"
                     title="Open"
                   >
                     ↗
                   </a>
                   <a
                     href={`/api/project-files/${file.id}?download=true`}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[12.5px] hover:bg-surface-muted"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[12.5px] hover:bg-surface-muted sm:h-7 sm:w-7"
                     title="Download"
                   >
                     ⬇
                   </a>
                   <button
                     onClick={() => setRemoving(file)}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[12.5px] text-subtle hover:bg-surface-muted hover:text-rose-500"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[12.5px] text-subtle hover:bg-surface-muted hover:text-rose-500 sm:h-7 sm:w-7"
                     title="Delete"
                   >
                     🗑

@@ -19,9 +19,10 @@ const VARIANTS: Record<Variant, string> = {
     "bg-rose-500/10 text-rose-600 dark:text-rose-300 border border-rose-500/25 hover:bg-rose-500/18",
 };
 
+/** Touch-friendly by default: nothing below 32px, 40px on the primary sizes. */
 const SIZES: Record<Size, string> = {
-  xs: "h-7 px-2.5 text-[12px] gap-1 rounded-lg",
-  sm: "h-8 px-3 text-[13px] gap-1.5 rounded-[10px]",
+  xs: "h-9 px-2.5 text-[12.5px] gap-1 rounded-lg sm:h-8",
+  sm: "h-10 px-3 text-[13px] gap-1.5 rounded-[10px] sm:h-8",
   md: "h-10 px-4 text-sm gap-2 rounded-xl",
 };
 
@@ -161,12 +162,12 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <h1 className="text-[26px] leading-tight font-semibold tracking-[-0.02em] sm:text-[30px]">
+    <div className="mb-5 flex flex-col gap-3 sm:mb-7 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+      <div className="min-w-0">
+        <h1 className="text-[22px] leading-tight font-semibold tracking-[-0.02em] xs:text-[24px] sm:text-[30px]">
           {title}
         </h1>
-        {subtitle ? <p className="mt-1.5 text-sm text-muted">{subtitle}</p> : null}
+        {subtitle ? <p className="mt-1 text-[13px] text-muted sm:mt-1.5 sm:text-sm">{subtitle}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
     </div>
@@ -185,7 +186,7 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line px-6 py-16 text-center">
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line px-4 py-10 text-center sm:px-6 sm:py-16">
       <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-surface-muted text-2xl">
         {icon}
       </div>

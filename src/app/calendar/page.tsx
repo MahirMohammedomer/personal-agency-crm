@@ -147,7 +147,7 @@ export default function CalendarPage() {
                 key={v}
                 onClick={() => setView(v)}
                 className={cn(
-                  "rounded-[10px] px-3 py-1.5 text-[12.5px] font-medium capitalize transition-colors",
+                  "rounded-[10px] px-3 py-2 text-[12.5px] font-medium capitalize transition-colors sm:py-1.5",
                   view === v ? "bg-surface-muted text-ink" : "text-subtle hover:text-ink",
                 )}
               >
@@ -191,7 +191,7 @@ export default function CalendarPage() {
                   })
                 }
                 className={cn(
-                  "flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11.5px] transition-opacity",
+                  "flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[11.5px] transition-opacity sm:py-1",
                   off ? "border-line opacity-40" : "border-line",
                 )}
                 title={off ? "Show" : "Hide"}

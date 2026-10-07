@@ -139,6 +139,10 @@ export default function DashboardPage() {
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  // The greeting depends on the viewer's clock/timezone; only show it once the client owns the DOM
+  // so server HTML and hydration agree.
+  const [greetingReady, setGreetingReady] = useState(false);
+  useEffect(() => setGreetingReady(true), []);
 
   if (loading) {
     return (
@@ -192,17 +196,19 @@ export default function DashboardPage() {
   return (
     <div className="animate-fade-up">
       <PageHeader
-        title={`${greeting} 👋`}
+        title={greetingReady ? `${greeting} 👋` : "Welcome back 👋"}
         subtitle={
           empty
             ? "Import your business list to get started."
             : workCount > 0
               ? `${workCount} thing${workCount === 1 ? "" : "s"} need you today.`
-              : new Date().toLocaleDateString("en-US", {
-                  weekday: "long",
-                  month: "long",
-                  day: "numeric",
-                })
+              : greetingReady
+                ? new Date().toLocaleDateString("en-US", {
+                    weekday: "long",
+                    month: "long",
+                    day: "numeric",
+                  })
+                : "Here is your day at a glance."
         }
         actions={
           <>
@@ -620,7 +626,7 @@ function FollowUpGroup({
                 {tel ? (
                   <a
                     href={tel}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[12.5px] hover:bg-surface"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[12.5px] hover:bg-surface sm:h-7 sm:w-7"
                     title={item.lead?.phone ?? "Call"}
                   >
                     📞
@@ -631,7 +637,7 @@ function FollowUpGroup({
                     href={wa}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[12.5px] hover:bg-surface"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[12.5px] hover:bg-surface sm:h-7 sm:w-7"
                     title="WhatsApp"
                   >
                     💬
@@ -697,7 +703,7 @@ function LeadStrip({
             const wa = whatsappHref(lead.phone);
             const maps = mapsHref(lead);
             const btn =
-              "inline-flex h-7 w-7 items-center justify-center rounded-lg text-[12.5px] transition-colors hover:bg-surface";
+              "inline-flex h-10 w-10 items-center justify-center rounded-lg text-[12.5px] transition-colors hover:bg-surface sm:h-7 sm:w-7";
             return (
               <div key={lead.id} className="rounded-xl border border-line bg-surface-muted/40 p-2.5">
                 <div className="flex items-center gap-2">

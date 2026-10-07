@@ -146,7 +146,7 @@ export function WebsiteFlag({ website }: { website: string | null }) {
 }
 
 const actionClass =
-  "inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-line bg-surface px-2.5 text-[12.5px] font-medium text-ink transition-all hover:border-line-strong hover:bg-surface-muted active:scale-[0.97]";
+  "inline-flex h-10 items-center gap-1.5 rounded-[10px] border border-line bg-surface px-3 text-[12.5px] font-medium text-ink transition-all hover:border-line-strong hover:bg-surface-muted active:scale-[0.97] sm:h-8 sm:px-2.5";
 
 export function QuickActions({
   lead,
